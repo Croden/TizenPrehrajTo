@@ -16,13 +16,15 @@ Aplikace pro Samsung TV (Tizen), která přináší [prehrajto.cz](https://prehr
 ## Instalace
 
 1. Měj na televizi nainstalovaný [TizenBrew](https://github.com/reisxd/TizenBrew)
-2. V TizenBrew otevři správu modulů a přidej modul:
+2. V TizenBrew otevři správu modulů a přidej modul (včetně `@main` – modul se pak sám aktualizuje):
 
    ```
-   Croden/TizenPrehrajTo
+   Croden/TizenPrehrajTo@main
    ```
 
 3. Spusť modul – otevře se prehrajto.cz připravené pro TV
+
+Po vydání nové verze stačí TizenBrew zavřít a znovu otevřít, modul není potřeba přeinstalovávat.
 
 ## Jak to funguje
 
