@@ -1,0 +1,21 @@
+{
+  "name": "tizenprehrajto",
+  "appName": "TizenPrehrajTo",
+  "version": "1.0.0",
+  "description": "TizenBrew mod: prehrajto.cz wrapper s vlastním CSS/JS pro Samsung TV",
+  "packageType": "mods",
+  "websiteURL": "https://prehrajto.cz/",
+  "main": "dist/userScript.js",
+  "keys": [
+    "MediaPlayPause",
+    "MediaPlay",
+    "MediaPause",
+    "MediaStop",
+    "MediaFastForward",
+    "MediaRewind"
+  ],
+  "scripts": {
+    "build": "node build.js"
+  },
+  "license": "MIT"
+}

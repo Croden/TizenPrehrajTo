@@ -1,0 +1,10 @@
+/*
+ * Vlastní CSS pro prehrajto.cz
+ * Sem patří všechny vizuální úpravy – po změně spusť `npm run build`.
+ */
+
+/* Příklad: schování loga (selektor si uprav podle skutečného DOM)
+.logo {
+  display: none !important;
+}
+*/
