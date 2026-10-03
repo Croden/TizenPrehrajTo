@@ -114,7 +114,7 @@
   // ------------------------------------------------------------------
   var FOCUS_SELECTORS = {
     home: 'input.video-search-phrase, .header__links a[href="#login"]',
-    favorites: 'input.video-search-phrase, a.pt-switch, a.video--link',
+    favorites: 'input.video-search-phrase, a.pt-switch, a.video--link, .pagination a',
     search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link',
     other: 'main a[href], main button, main input:not([type=hidden]), .header__links a, input.video-search-phrase',
   };
@@ -145,10 +145,36 @@
     try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(); }
   }
 
+  // Srdíčko „přidat do oblíbených" u karty videa (renderuje ho web,
+  // jen po přihlášení). Fokusuje se šipkou dolů z videa.
+  function favControlFor(videoLink) {
+    if (!videoLink || !videoLink.closest) return null;
+    var wrap = videoLink.closest('.video-wrapper') || videoLink.parentElement;
+    if (!wrap) return null;
+    var fav = wrap.querySelector('.video-favorite button, .video-favorite a, .video-favorite input');
+    if (!fav) {
+      fav = wrap.querySelector('.video-favorite');
+      if (fav && fav.tabIndex < 0) fav.setAttribute('tabindex', '-1');
+    }
+    return fav && isVisible(fav) ? fav : null;
+  }
+
+  // Je-li fokus na srdíčku, vrátí odkaz videa, ke kterému patří
+  function ownerVideoLink(el) {
+    if (!el || !el.closest || !el.closest('.video-favorite')) return null;
+    var wrap = el.closest('.video-wrapper');
+    return el.closest('a.video--link') ||
+      (wrap && wrap.querySelector('a.video--link'));
+  }
+
   function moveFocus(dir) {
     var list = focusables();
     if (!list.length) return;
-    var idx = list.indexOf(document.activeElement);
+    var cur = document.activeElement;
+    // doleva/doprava přepíná vždy mezi videi – ze srdíčka se vychází
+    // z pozice jeho videa
+    var owner = ownerVideoLink(cur);
+    var idx = list.indexOf(owner || cur);
     var next;
     if (idx === -1) {
       next = list[0];
@@ -164,9 +190,24 @@
     var list = focusables();
     if (!list.length) return;
     var cur = document.activeElement;
-    if (list.indexOf(cur) === -1) {
+    var owner = ownerVideoLink(cur);
+    if (owner) {
+      // ze srdíčka: nahoru zpět na video, dolů pokračuje grid od videa
+      if (dir < 0) {
+        focusEl(owner);
+        return;
+      }
+      cur = owner;
+    } else if (list.indexOf(cur) === -1) {
       focusEl(list[0]);
       return;
+    } else if (dir > 0 && cur.classList && cur.classList.contains('video--link')) {
+      // z videa dolů nejdřív na jeho srdíčko (pokud existuje)
+      var fav = favControlFor(cur);
+      if (fav) {
+        focusEl(fav);
+        return;
+      }
     }
     var cr = cur.getBoundingClientRect();
     var cx = cr.left + cr.width / 2;
@@ -238,7 +279,9 @@
       for (var i = 0; i < sibs.length; i++) {
         var sib = sibs[i];
         if (sib === el) continue;
-        if (sib.querySelector('a.video--link') || sib.querySelector('input.video-search-phrase')) continue;
+        if (sib.querySelector('a.video--link') || sib.querySelector('input.video-search-phrase') ||
+            sib.querySelector('.pagination-item') ||
+            (sib.classList && sib.classList.contains('pagination'))) continue;
         sib.style.display = 'none';
       }
       el.style.width = '100%';
@@ -352,6 +395,12 @@
     var t = video.currentTime + delta;
     if (video.duration) t = Math.min(video.duration - 1, t);
     video.currentTime = Math.max(0, t);
+    // při přetáčení krátce ukázat ovládací lištu s progresem
+    document.body.classList.add('pt-seeking');
+    clearTimeout(seek._t);
+    seek._t = setTimeout(function () {
+      document.body.classList.remove('pt-seeking');
+    }, 1800);
   }
 
   // Krátká informační hláška dole na obrazovce
@@ -511,6 +560,14 @@
           e.preventDefault();
           e.stopPropagation();
           submitSearch(document.activeElement);
+          return;
+        }
+        // Enter na srdíčku jen přepne oblíbené, nesmí otevřít video
+        if (document.activeElement && document.activeElement.closest &&
+            document.activeElement.closest('.video-favorite')) {
+          e.preventDefault();
+          e.stopPropagation();
+          document.activeElement.click();
         }
         return;
 
@@ -552,8 +609,16 @@
   // Autofocus podle stránky
   // ------------------------------------------------------------------
   function autofocus(type) {
-    if (type === 'home' || type === 'favorites') {
+    if (type === 'home') {
       focusEl(document.querySelector('input.video-search-phrase'));
+    } else if (type === 'favorites') {
+      if (location.pathname.indexOf('/oblibena-videa') === 0) {
+        focusEl(document.querySelector('input.video-search-phrase'));
+      } else {
+        // na "právě sledovaných" rovnou první video (jako po vyhledání)
+        var fv = document.querySelector('a.video--link');
+        focusEl(fv || document.querySelector('input.video-search-phrase'));
+      }
     } else if (type === 'search') {
       var first = document.querySelector('#snippet-videoListing-videoListingWrapper a.video--link');
       focusEl(first || document.querySelector('input.video-search-phrase'));

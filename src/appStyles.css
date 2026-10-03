@@ -9,16 +9,26 @@ body:not(.pt-ready) {
   visibility: hidden !important;
 }
 
-/* srdíčko „oblíbené“ u videí schovat – označování jen na PC */
-body.pt-search .video-favorite,
-body.pt-favorites .video-favorite {
-  display: none !important;
-}
-
-/* web dává .video__content do flexu kvůli srdíčku – vrátit, ať má název plnou šířku */
+/* srdíčko „přidat do oblíbených“ vedle názvu (web dává .video__content
+   s ním do flexu) */
 body.pt-search .video__content,
 body.pt-favorites .video__content {
-  display: block !important;
+  align-items: center;
+}
+
+body.pt-search .video__content .video-favorite,
+body.pt-favorites .video__content .video-favorite {
+  flex: 0 0 auto;
+}
+
+/* srdíčko „přidat do oblíbených“ – fokus šipkou dolů z videa */
+body.pt-search .video-favorite:focus,
+body.pt-favorites .video-favorite:focus,
+body.pt-search .video-favorite :focus,
+body.pt-favorites .video-favorite :focus {
+  outline: 4px solid #ffb400 !important;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* OSD hláška (přepínání zvuku/titulků) */
@@ -212,11 +222,25 @@ body.pt-favorites .header__links {
   justify-content: flex-end;
 }
 
-/* přepínač Oblíbená videa / Právě sledovaná pod vyhledáváním */
+/* přepínač Oblíbená videa / Právě sledovaná pod vyhledáváním
+   (stejná mezera nad i pod – dole přičti 0.5rem margin karty videa,
+   obsah stránky nemá vlastní horní odsazení) */
 body.pt-favorites .pt-switch-row {
   display: flex;
   justify-content: center;
-  margin: 0.8rem 0 0.2rem;
+  margin: 1rem 0 0.5rem;
+}
+
+body.pt-favorites main,
+body.pt-favorites main .section {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+/* paginace (hlavně u právě sledovaných) */
+body.pt-favorites .pagination a:focus {
+  outline: 4px solid #ffb400 !important;
+  outline-offset: 2px;
 }
 
 body.pt-favorites a.pt-switch {
@@ -352,11 +376,19 @@ body.pt-video #content_video video {
   height: 100%;
 }
 
-/* ovládací lišta video.js se na TV nepoužívá (vše řeší ovladač) a její
-   neustálé překreslování jen ubírá výkon přehrávání */
+/* Ovládací lišta video.js: při přehrávání schovaná (zbytečně se
+   překresluje), ukáže se při pauze a krátce při přetáčení šipkami */
 body.pt-video .vjs-control-bar,
 body.pt-video .vjs-big-play-button {
   display: none !important;
+}
+
+body.pt-video.pt-paused .vjs-control-bar,
+body.pt-video.pt-seeking .vjs-control-bar {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  font-size: 1.3em;
 }
 
 /* Titulek a hodnocení jako overlay – viditelné jen při pauze */

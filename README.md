@@ -7,6 +7,7 @@ Aplikace pro Samsung TV (Tizen), která přináší [prehrajto.cz](https://prehr
 - **Oblíbená videa jako úvodní stránka** – nahoře vyhledávání a info o premiu, pod tím oblíbená videa přes celou šířku obrazovky
 - **Přepínač pod vyhledáváním** – přepíná mezi oblíbenými a právě sledovanými videi
 - **Ovládání dálkovým ovladačem** – šipkami se pohybuješ mezi prvky, Enter vybírá
+  - šipky doleva/doprava přepínají mezi videi, šipka dolů zaměří srdíčko pro přidání/odebrání z oblíbených, další stisk pokračuje v mřížce dolů
 - **Vyhledávání** – po vyhledání zůstanou jen výsledky a filtry, první video se rovnou zaměří
 - **Přehrávání přes celou obrazovku** – video se po otevření samo spustí ve fullscreenu
   - **Enter** – pauza / přehrát (při pauze se zobrazí název a hodnocení videa)
