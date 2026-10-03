@@ -1,36 +1,34 @@
 # TizenPrehrajTo
 
-TizenBrew modul pro Samsung TV – wrapper webu [prehrajto.cz](https://prehrajto.cz/) s možností vložit vlastní CSS a JS.
+Aplikace pro Samsung TV (Tizen), která přináší [prehrajto.cz](https://prehrajto.cz/) na televizní obrazovku – podobně jako TizenTube pro YouTube.
+
+## Co umí
+
+- **Čistá domovská obrazovka** – jen vyhledávání a přihlášení, žádné bannery a reklamy okolo
+- **Ovládání dálkovým ovladačem** – šipkami se pohybuješ mezi prvky, Enter vybírá
+- **Vyhledávání** – po vyhledání zůstanou jen výsledky a filtry, první video se rovnou zaměří
+- **Přehrávání přes celou obrazovku** – video se po otevření samo spustí ve fullscreenu
+  - **Enter** – pauza / přehrát (při pauze se zobrazí název a hodnocení videa)
+  - **šipky doleva/doprava** – skok o 10 s zpět/vpřed
+  - fungují i mediální tlačítka (Play/Pause, Stop, převíjení)
+- **Tlačítko Zpět** – vrací na předchozí stránku, na domovské obrazovce ukončí aplikaci
+
+## Instalace
+
+1. Měj na televizi nainstalovaný [TizenBrew](https://github.com/reisxd/TizenBrew)
+2. V TizenBrew otevři správu modulů a přidej modul:
+
+   ```
+   Croden/TizenPrehrajTo
+   ```
+
+3. Spusť modul – otevře se prehrajto.cz připravené pro TV
 
 ## Jak to funguje
 
-TizenBrew modul typu `mods` otevře `https://prehrajto.cz/` a injektuje do stránky
-`dist/userScript.js`. Ten vloží vlastní styly, zaregistruje mediální klávesy
-ovladače (Play/Pause/Stop/FF/RW) a tlačítko Zpět mapuje na historii prohlížeče
-(na úvodní stránce Zpět appku ukončí).
+Jde o TizenBrew modul typu `mods`: TizenBrew otevře prehrajto.cz a do stránky vstříkne skript ([dist/userScript.js](dist/userScript.js)), který přidá styly pro TV, ovládání dálkovým ovladačem a automatické přehrávání. Samotný web se nijak nemění.
 
 ## Vlastní úpravy
 
 - **CSS** → [`src/userStyles.css`](src/userStyles.css)
 - **JS** → funkce `customJs()` v [`src/userScript.js`](src/userScript.js)
-
-Po změně:
-
-```sh
-npm run build   # vygeneruje dist/userScript.js (commituje se!)
-```
-
-## Instalace do TV
-
-1. Pushni repo na GitHub (veřejné) a vytvoř tag, např. `v1.0.0`.
-2. V TizenBrew na TV přidej modul: `gh/<github-user>/<nazev-repa>`.
-
-## Vydání nové verze
-
-jsDelivr (přes který TizenBrew moduly stahuje) agresivně cachuje:
-
-1. Zvyš `version` v `package.json`.
-2. `npm run build`, commit, push.
-3. Vytvoř nový git tag (`git tag v1.0.1 && git push --tags`).
-4. Případně vynuť obnovu cache: `https://purge.jsdelivr.net/gh/<user>/<repo>@latest/package.json`
-5. V TizenBrew modul aktualizuj/znovu načti.
