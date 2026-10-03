@@ -114,7 +114,7 @@
   // ------------------------------------------------------------------
   var FOCUS_SELECTORS = {
     home: 'input.video-search-phrase, .header__links a[href="#login"]',
-    favorites: 'input.video-search-phrase, a.pt-switch, a.video--link, .pagination a',
+    favorites: 'input.video-search-phrase, a.pt-switch, .pt-filter-group a, .pt-filter-group button, a.video--link, .pagination a',
     search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link',
     other: 'main a[href], main button, main input:not([type=hidden]), .header__links a, input.video-search-phrase',
   };
@@ -130,11 +130,14 @@
     for (var i = 0; i < nodes.length; i++) {
       if (isVisible(nodes[i])) list.push(nodes[i]);
     }
-    // řadit podle vizuální pozice, DOM pořadí jí nemusí odpovídat
+    // řadit podle vizuální pozice, DOM pořadí jí nemusí odpovídat;
+    // prvky s téměř stejnou výškou brát jako jeden řádek
     list.sort(function (a, b) {
       var ra = a.getBoundingClientRect();
       var rb = b.getBoundingClientRect();
-      return ra.top - rb.top || ra.left - rb.left;
+      var dy = ra.top - rb.top;
+      if (Math.abs(dy) < 10) return ra.left - rb.left;
+      return dy;
     });
     return list;
   }
@@ -328,6 +331,58 @@
     a.textContent = onFavorites ? 'Právě sledované uživateli' : 'Oblíbená videa';
     row.appendChild(a);
     header.appendChild(row);
+  }
+
+  // Srdíčko „přidat do oblíbených" (web ho kreslí přes thumbnail)
+  // přesunout do řádku štítků pod thumbnailem, úplně doprava.
+  // Background a zaoblení se kopíruje ze štítku s délkou videa.
+  // Srdíčka web dokresluje (a po kliknutí mění) průběžně, volá se
+  // proto opakovaně z intervalu.
+  function placeFavorites() {
+    var links = document.querySelectorAll('a.video--link');
+    for (var i = 0; i < links.length; i++) {
+      var wrap = (links[i].closest && links[i].closest('.video-wrapper')) || links[i];
+      var fav = wrap.querySelector('.video-favorite:not(.pt-fav-tag)');
+      if (!fav) continue;
+      var header = links[i].querySelector('.video__header');
+      if (!header) continue;
+      fav.classList.add('pt-fav-tag');
+      header.appendChild(fav);
+      var ref = header.querySelector('.video__tag--time') ||
+                header.querySelector('.video__tag');
+      if (ref) {
+        var cs = getComputedStyle(ref);
+        fav.style.background = cs.backgroundColor;
+        fav.style.borderRadius = cs.borderRadius;
+        fav.style.color = cs.color;
+        fav.style.fontSize = cs.fontSize;
+        fav.style.padding = cs.padding;
+      }
+    }
+  }
+
+  // Tlačítka filtru doby ("24 hodin", "7 dní", "14 dní") na právě
+  // sledovaných přesunout doprava na řádek přepínače. Jejich původní
+  // kontejner (s nadpisem "nejsledovanější za…") zůstává schovaný.
+  function moveTimeFilters() {
+    var row = document.querySelector('.pt-switch-row');
+    if (!row) return;
+    var group = row.querySelector('.pt-filter-group');
+    var nodes = document.querySelectorAll('main a, main button, main label');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.classList.contains('pt-filter')) continue;
+      if (el.closest && el.closest('.pt-filter-group')) continue;
+      var t = (el.textContent || '').trim();
+      if (!/^(24\s*hodin|7\s*dn[íi]|14\s*dn[íi])$/i.test(t)) continue;
+      if (!group) {
+        group = document.createElement('div');
+        group.className = 'pt-filter-group';
+        row.appendChild(group);
+      }
+      el.classList.add('pt-filter');
+      group.appendChild(el);
+    }
   }
 
   // Info o premiu zarovnat na pravou hranu vyhledávacího pole
@@ -655,6 +710,10 @@
           clearInterval(favTimer);
         }
       }, 250);
+      setInterval(moveTimeFilters, 500);
+    }
+    if (type === 'favorites' || type === 'search') {
+      setInterval(placeFavorites, 500);
     }
 
     // Vue komponenta vyhledávání se renderuje chvíli po DOMContentLoaded

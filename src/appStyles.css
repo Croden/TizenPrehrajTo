@@ -9,16 +9,47 @@ body:not(.pt-ready) {
   visibility: hidden !important;
 }
 
-/* srdíčko „přidat do oblíbených“ vedle názvu (web dává .video__content
-   s ním do flexu) */
-body.pt-search .video__content,
-body.pt-favorites .video__content {
+/* srdíčko „přidat do oblíbených“ – skript ho přesouvá z thumbnailu do
+   řádku štítků pod ním (úplně vpravo); background/radius kopíruje ze
+   štítku s délkou videa */
+body.pt-search .video__header .video-favorite,
+body.pt-favorites .video__header .video-favorite {
+  position: static !important;
+  margin: 0.3rem 0 0 0.5rem !important;
+  justify-content: center;
+}
+
+body.pt-search .video__header .video-favorite a,
+body.pt-favorites .video__header .video-favorite a,
+body.pt-search .video__header .video-favorite button,
+body.pt-favorites .video__header .video-favorite button {
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: inherit !important;
+  font-size: inherit !important;
+  line-height: 1;
+  display: inline-flex;
   align-items: center;
 }
 
-body.pt-search .video__content .video-favorite,
-body.pt-favorites .video__content .video-favorite {
-  flex: 0 0 auto;
+/* všechny štítky pod thumbnailem (délka, lajky, velikost i srdíčko)
+   mají stejnou výšku */
+body.pt-search .video__header .video__tag,
+body.pt-favorites .video__header .video__tag,
+body.pt-search .video__header .video-favorite,
+body.pt-favorites .video__header .video-favorite {
+  height: 2.2rem;
+  box-sizing: border-box;
+  display: inline-flex !important;
+  align-items: center;
+}
+
+/* štítky uvnitř skupiny vpravo nesmí dědit horní odsazení řádku */
+body.pt-search .video__header .video__tag--others .video__tag,
+body.pt-favorites .video__header .video__tag--others .video__tag {
+  margin-top: 0 !important;
 }
 
 /* srdíčko „přidat do oblíbených“ – fokus šipkou dolů z videa */
@@ -226,9 +257,50 @@ body.pt-favorites .header__links {
    (stejná mezera nad i pod – dole přičti 0.5rem margin karty videa,
    obsah stránky nemá vlastní horní odsazení) */
 body.pt-favorites .pt-switch-row {
+  position: relative;
   display: flex;
   justify-content: center;
   margin: 1rem 0 0.5rem;
+}
+
+/* filtry doby ("24 hodin", "7 dní", "14 dní") přesunuté z právě
+   sledovaných – vpravo na úrovni přepínače, vzhled jako tlačítka */
+body.pt-favorites .pt-filter-group {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+body.pt-favorites .pt-filter-group .pt-filter {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  padding: 0.35rem 1.2rem;
+  background: #333;
+  color: #fff !important;
+  border: 2px solid #888;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+body.pt-favorites .pt-filter-group .pt-filter:focus {
+  outline: 4px solid #ffb400 !important;
+  outline-offset: 2px;
+}
+
+/* aktivní filtr (web si značí vybraný různě, pokrýt běžné třídy) */
+body.pt-favorites .pt-filter-group .pt-filter.active,
+body.pt-favorites .pt-filter-group .pt-filter.is-active,
+body.pt-favorites .pt-filter-group .pt-filter.selected {
+  background: #ffb400;
+  border-color: #ffb400;
+  color: #000 !important;
 }
 
 body.pt-favorites main,
@@ -329,9 +401,12 @@ body.pt-search .video__header .video__tag--size {
   margin-left: 0.5rem !important;
 }
 
-/* ikonka kvality (HD) je zbytečná */
+/* ikonka kvality (HD) je zbytečná (selektor s .video__header musí
+   přebít display:inline-flex štítků výše) */
 body.pt-favorites .video__tag--format,
-body.pt-search .video__tag--format {
+body.pt-search .video__tag--format,
+body.pt-favorites .video__header .video__tag--format,
+body.pt-search .video__header .video__tag--format {
   display: none !important;
 }
 
