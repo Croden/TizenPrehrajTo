@@ -21,6 +21,27 @@ body.pt-favorites .video__content {
   display: block !important;
 }
 
+/* OSD hláška (přepínání zvuku/titulků) */
+#pt-osd {
+  position: fixed;
+  left: 50%;
+  bottom: 8vh;
+  transform: translateX(-50%);
+  z-index: 9500;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 1.4rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+#pt-osd.pt-osd--visible {
+  opacity: 1;
+}
+
 #feedback,
 .popup,
 .nav--mobile,

@@ -11,6 +11,7 @@ Aplikace pro Samsung TV (Tizen), která přináší [prehrajto.cz](https://prehr
   - **Enter** – pauza / přehrát (při pauze se zobrazí název a hodnocení videa)
   - **šipky doleva/doprava** – skok o 10 s zpět/vpřed
   - fungují i mediální tlačítka (Play/Pause, Stop, převíjení)
+  - **Channel ▲** – přepíná zvukovou stopu, **Channel ▼** – přepíná titulky (pokud je video má)
 - **Tlačítko Zpět** – vrací na předchozí stránku; pokud je fokus ve vyhledávání, první Zpět jen zruší fokus, další na domovské obrazovce ukončí aplikaci
 
 ## Instalace

@@ -27,6 +27,8 @@
     MEDIA_STOP: 413,
     MEDIA_FAST_FORWARD: 417,
     MEDIA_REWIND: 412,
+    CHANNEL_UP: 427,
+    CHANNEL_DOWN: 428,
   };
 
   var SEEK_STEP_SECONDS = 10;
@@ -67,7 +69,7 @@
 
   function registerMediaKeys() {
     try {
-      ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind'].forEach(function (name) {
+      ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind', 'ChannelUp', 'ChannelDown'].forEach(function (name) {
         try { window.tizen.tvinputdevice.registerKey(name); } catch (e) { /* klávesa není dostupná */ }
       });
     } catch (e) { /* mimo Tizen */ }
@@ -307,6 +309,87 @@
     video.currentTime = Math.max(0, t);
   }
 
+  // Krátká informační hláška dole na obrazovce
+  function showOsd(text) {
+    var el = document.getElementById('pt-osd');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'pt-osd';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.classList.add('pt-osd--visible');
+    clearTimeout(showOsd._t);
+    showOsd._t = setTimeout(function () { el.classList.remove('pt-osd--visible'); }, 2000);
+  }
+
+  // Seznamy stop – přednostně z video.js playeru, jinak z <video>
+  function getTrackLists() {
+    var audio = null;
+    var text = null;
+    var p = null;
+    try {
+      if (window.videojs) {
+        if (window.videojs.getPlayer) p = window.videojs.getPlayer('content_video');
+        if (!p && window.videojs.players) {
+          var ids = Object.keys(window.videojs.players);
+          if (ids.length) p = window.videojs.players[ids[0]];
+        }
+      }
+    } catch (e) { /* bez video.js */ }
+    try { if (p && p.audioTracks) audio = p.audioTracks(); } catch (e) {}
+    try { if (p && p.textTracks) text = p.textTracks(); } catch (e) {}
+    var v = activeVideo();
+    if ((!audio || !audio.length) && v) audio = v.audioTracks;
+    if ((!text || !text.length) && v) text = v.textTracks;
+    return { audio: audio, text: text };
+  }
+
+  function trackName(t, idx) {
+    return t.label || t.language || ('stopa ' + (idx + 1));
+  }
+
+  function cycleAudio() {
+    var tracks = getTrackLists().audio;
+    if (!tracks || tracks.length < 2) {
+      showOsd('Jen jedna zvuková stopa');
+      return;
+    }
+    var cur = 0;
+    for (var i = 0; i < tracks.length; i++) {
+      if (tracks[i].enabled) { cur = i; break; }
+    }
+    var next = (cur + 1) % tracks.length;
+    for (var j = 0; j < tracks.length; j++) tracks[j].enabled = (j === next);
+    showOsd('Zvuk: ' + trackName(tracks[next], next));
+  }
+
+  function cycleSubtitles() {
+    var tracks = getTrackLists().text;
+    var subs = [];
+    if (tracks) {
+      for (var i = 0; i < tracks.length; i++) {
+        if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') subs.push(tracks[i]);
+      }
+    }
+    if (!subs.length) {
+      showOsd('Žádné titulky');
+      return;
+    }
+    var cur = -1;
+    for (var j = 0; j < subs.length; j++) {
+      if (subs[j].mode === 'showing') { cur = j; break; }
+    }
+    var next = cur + 1; // po poslední stopě se titulky vypnou
+    for (var k = 0; k < subs.length; k++) subs[k].mode = 'disabled';
+    if (next < subs.length) {
+      subs[next].mode = 'showing';
+      showOsd('Titulky: ' + trackName(subs[next], next));
+    } else {
+      showOsd('Titulky: vypnuto');
+    }
+  }
+
   function togglePlay() {
     var video = activeVideo();
     if (!video) return;
@@ -401,6 +484,14 @@
         break;
       case KEY.MEDIA_REWIND:
         seek(-SEEK_STEP_SECONDS);
+        break;
+      case KEY.CHANNEL_UP:
+        if (!video) return;
+        cycleAudio();
+        break;
+      case KEY.CHANNEL_DOWN:
+        if (!video) return;
+        cycleSubtitles();
         break;
       default:
         return;
