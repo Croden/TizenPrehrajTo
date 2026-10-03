@@ -104,8 +104,67 @@ body.pt-search main > .grid-x:not(:last-child) h1 {
   display: none !important;
 }
 
-body.pt-search .top-bar {
-  justify-content: center;
+/* širší obsah – výchozí container je zbytečně úzký */
+body.pt-search .grid-container {
+  max-width: 112rem !important;
+}
+
+/* vyhledávání přes celou šířku (logo je schované) */
+body.pt-search .top-bar-left {
+  display: none !important;
+}
+
+body.pt-search .top-bar-right,
+body.pt-search .suggest-wrapper,
+body.pt-search .suggest,
+body.pt-search .form-search,
+body.pt-search .form__group--search {
+  width: 100% !important;
+  max-width: none !important;
+  float: none !important;
+}
+
+body.pt-search input.video-search-phrase {
+  width: 100% !important;
+}
+
+/* ===== Oblíbená videa (výchozí stránka) – search + premium + videa ===== */
+body.pt-favorites .logo,
+body.pt-favorites .nav,
+body.pt-favorites .top-bar-left,
+body.pt-favorites #switch-theme-form,
+body.pt-favorites .section__header,
+body.pt-favorites .breadcrumbs {
+  display: none !important;
+}
+
+body.pt-favorites .grid-container {
+  max-width: 112rem !important;
+}
+
+body.pt-favorites .top-bar-right,
+body.pt-favorites .suggest-wrapper,
+body.pt-favorites .suggest,
+body.pt-favorites .form-search,
+body.pt-favorites .form__group--search {
+  width: 100% !important;
+  max-width: none !important;
+  float: none !important;
+}
+
+body.pt-favorites input.video-search-phrase {
+  width: 100% !important;
+}
+
+/* premium info v liště nechat viditelné a decentní */
+body.pt-favorites .header__links {
+  justify-content: flex-end;
+}
+
+/* karty oblíbených videí vedle sebe (pojistka, kdyby stránka stackovala) */
+body.pt-favorites .video-wrapper {
+  display: inline-block;
+  vertical-align: top;
 }
 
 /* ===== Video stránka – fullscreen player + titulek + hodnocení ===== */

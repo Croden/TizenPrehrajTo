@@ -37,6 +37,7 @@
   function pageType() {
     var p = location.pathname;
     if (p === '/' || p === '') return 'home';
+    if (p.indexOf('/oblibena-videa') === 0) return 'favorites';
     if (p.indexOf('/hledej/') === 0) return 'search';
     if (document.getElementById('video-wrap')) return 'video';
     return 'other';
@@ -105,6 +106,7 @@
   // ------------------------------------------------------------------
   var FOCUS_SELECTORS = {
     home: 'input.video-search-phrase, .header__links a[href="#login"]',
+    favorites: 'input.video-search-phrase, a.video--link',
     search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link',
     other: 'main a[href], main button, main input:not([type=hidden]), .header__links a, input.video-search-phrase',
   };
@@ -146,6 +148,62 @@
       next = list[Math.max(0, Math.min(list.length - 1, idx + dir))];
     }
     focusEl(next);
+  }
+
+  // Skok o řádek nahoru/dolů: nejbližší řádek v daném směru, v něm
+  // prvek nejblíž aktuálnímu sloupci.
+  function moveFocusRow(dir) {
+    var list = focusables();
+    if (!list.length) return;
+    var cur = document.activeElement;
+    if (list.indexOf(cur) === -1) {
+      focusEl(list[0]);
+      return;
+    }
+    var cr = cur.getBoundingClientRect();
+    var cx = cr.left + cr.width / 2;
+    var cy = cr.top + cr.height / 2;
+    var ROW_TOLERANCE = 30;
+
+    var candidates = [];
+    var minDy = Infinity;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] === cur) continue;
+      var r = list[i].getBoundingClientRect();
+      var y = r.top + r.height / 2;
+      if (dir > 0 ? y <= cy + ROW_TOLERANCE : y >= cy - ROW_TOLERANCE) continue;
+      var dy = Math.abs(y - cy);
+      candidates.push({ el: list[i], dy: dy, dx: Math.abs(r.left + r.width / 2 - cx) });
+      if (dy < minDy) minDy = dy;
+    }
+    if (!candidates.length) return;
+
+    var best = null;
+    for (var j = 0; j < candidates.length; j++) {
+      var c = candidates[j];
+      if (c.dy > minDy + ROW_TOLERANCE) continue;
+      if (!best || c.dx < best.dx) best = c;
+    }
+    if (best) focusEl(best.el);
+  }
+
+  // ------------------------------------------------------------------
+  // Přihlášená lišta – nechat jen info o premiu ("premium 32 dní"),
+  // schovat "Můj účet" a "Odhlásit se". Selektory neznáme předem,
+  // proto se řídí textem/odkazem položek.
+  // ------------------------------------------------------------------
+  function tidyAccountBar() {
+    var items = document.querySelectorAll('.header__links li');
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var text = (item.textContent || '').toLowerCase();
+      if (text.indexOf('premium') !== -1 || /\d+\s*dn/.test(text)) continue;
+      var a = item.querySelector('a, button');
+      var href = a ? (a.getAttribute('href') || '') : '';
+      if (/odhl|logout|sign-?out|profil|ucet|\u00fa\u010det/.test(text + ' ' + href)) {
+        item.style.display = 'none';
+      }
+    }
   }
 
   // ------------------------------------------------------------------
@@ -221,7 +279,7 @@
         if (dialog) {
           var close = dialog.querySelector('.close-button');
           if (close) close.click();
-        } else if (type === 'home') {
+        } else if (type === 'home' || type === 'favorites') {
           exitApp();
         } else {
           history.back();
@@ -236,7 +294,7 @@
         }
         e.preventDefault();
         e.stopPropagation();
-        moveFocus(e.keyCode === KEY.DOWN ? 1 : -1);
+        moveFocusRow(e.keyCode === KEY.DOWN ? 1 : -1);
         return;
 
       case KEY.LEFT:
@@ -298,7 +356,7 @@
   // Autofocus podle stránky
   // ------------------------------------------------------------------
   function autofocus(type) {
-    if (type === 'home') {
+    if (type === 'home' || type === 'favorites') {
       focusEl(document.querySelector('input.video-search-phrase'));
     } else if (type === 'search') {
       var first = document.querySelector('#snippet-videoListing-videoListingWrapper a.video--link');
@@ -321,6 +379,7 @@
     injectCss();
     var type = pageType();
     document.body.classList.add('pt-' + type);
+    tidyAccountBar();
     if (type === 'video') initVideoPage();
 
     // Vue komponenta vyhledávání se renderuje chvíli po DOMContentLoaded
