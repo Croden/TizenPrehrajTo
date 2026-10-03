@@ -4,6 +4,23 @@
  */
 
 /* ===== Globální ===== */
+/* stránka se ukáže až po aplikaci TV úprav (žádné probliknutí původního webu) */
+body:not(.pt-ready) {
+  visibility: hidden !important;
+}
+
+/* srdíčko „oblíbené“ u videí schovat – označování jen na PC */
+body.pt-search .video-favorite,
+body.pt-favorites .video-favorite {
+  display: none !important;
+}
+
+/* web dává .video__content do flexu kvůli srdíčku – vrátit, ať má název plnou šířku */
+body.pt-search .video__content,
+body.pt-favorites .video__content {
+  display: block !important;
+}
+
 #feedback,
 .popup,
 .nav--mobile,
@@ -161,10 +178,36 @@ body.pt-favorites .header__links {
   justify-content: flex-end;
 }
 
-/* karty oblíbených videí vedle sebe (pojistka, kdyby stránka stackovala) */
-body.pt-favorites .video-wrapper {
-  display: inline-block;
-  vertical-align: top;
+/* mřížka oblíbených: 6 videí vedle sebe, vycentrovaná
+   (.pt-fav-grid přidává skript na rodiče video karet) */
+body.pt-favorites .pt-fav-grid {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100% !important;
+  max-width: none !important;
+}
+
+body.pt-favorites .pt-fav-grid > * {
+  flex: 0 0 auto;
+  width: calc(100% / 6 - 1rem) !important;
+  max-width: none !important;
+  margin: 0.5rem !important;
+}
+
+body.pt-favorites .pt-fav-grid .video,
+body.pt-favorites .pt-fav-grid .video__picture--container {
+  width: 100% !important;
+}
+
+body.pt-favorites .pt-fav-grid .video img {
+  width: 100% !important;
+  height: auto;
+}
+
+body.pt-favorites .pt-fav-grid .video__title {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 /* ===== Video stránka – fullscreen player + titulek + hodnocení ===== */

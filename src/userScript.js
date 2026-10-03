@@ -223,6 +223,7 @@
     var wrapper = (link.closest && link.closest('.video-wrapper')) || link;
     var main = document.querySelector('main') || document.body;
     if (!main.contains(wrapper)) return true;
+    if (wrapper.parentElement) wrapper.parentElement.classList.add('pt-fav-grid');
     var el = wrapper.parentElement;
     while (el && el !== main && el !== document.body) {
       var sibs = el.parentElement ? el.parentElement.children : [];
@@ -237,6 +238,26 @@
       el = el.parentElement;
     }
     return true;
+  }
+
+  // Info o premiu zarovnat na pravou hranu vyhledávacího pole
+  function alignPremiumToSearch() {
+    var input = document.querySelector('input.video-search-phrase');
+    var links = document.querySelector('.header__links');
+    if (!input || !links) return;
+    var item = null;
+    var lis = links.querySelectorAll('li');
+    for (var i = 0; i < lis.length; i++) {
+      if (isVisible(lis[i])) { item = lis[i]; break; }
+    }
+    var r = (item || links).getBoundingClientRect();
+    var ir = input.getBoundingClientRect();
+    if (!r.width || !ir.width) return;
+    var d = Math.round(r.right - ir.right);
+    if (d) {
+      links.style.marginRight =
+        ((parseFloat(getComputedStyle(links).marginRight) || 0) + d) + 'px';
+    }
   }
 
   // ------------------------------------------------------------------
@@ -409,19 +430,33 @@
   // ------------------------------------------------------------------
 
   injectCss();
+  // na TV se skript spouští ještě před parsováním dokumentu – zkoušet
+  // vložit CSS co nejdřív, aby původní web vůbec neprobliknul
+  if (CUSTOM_CSS && !document.getElementById('tizenprehrajto-styles')) {
+    var cssTimer = setInterval(function () {
+      injectCss();
+      if (document.getElementById('tizenprehrajto-styles')) clearInterval(cssTimer);
+    }, 10);
+  }
   registerMediaKeys();
   window.addEventListener('keydown', onKeyDown, true);
 
   whenDomReady(function () {
     injectCss();
     var type = pageType();
+    document.body.classList.add('pt-ready');
     document.body.classList.add('pt-' + type);
     tidyAccountBar();
     if (type === 'video') initVideoPage();
     if (type === 'favorites') {
       var favTries = 0;
       var favTimer = setInterval(function () {
-        if (tidyFavoritesLayout() || ++favTries > 20) clearInterval(favTimer);
+        if (tidyFavoritesLayout()) {
+          clearInterval(favTimer);
+          alignPremiumToSearch();
+        } else if (++favTries > 20) {
+          clearInterval(favTimer);
+        }
       }, 250);
     }
 
