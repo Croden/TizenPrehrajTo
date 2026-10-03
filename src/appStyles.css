@@ -259,11 +259,15 @@ body.pt-search .video__header .video__tag--others {
   align-items: center;
 }
 
-body.pt-favorites .video__header .video__tag--format,
-body.pt-search .video__header .video__tag--format,
 body.pt-favorites .video__header .video__tag--size,
 body.pt-search .video__header .video__tag--size {
   margin-left: 0.5rem !important;
+}
+
+/* ikonka kvality (HD) je zbytečná */
+body.pt-favorites .video__tag--format,
+body.pt-search .video__tag--format {
+  display: none !important;
 }
 
 /* ikona play překrývala thumbnail */
