@@ -2,8 +2,8 @@
  * TizenPrehrajTo – TizenBrew mod pro Samsung TV
  * Injektuje se do https://prehrajto.cz/ při každém načtení stránky.
  *
- * Vlastní CSS patří do src/userStyles.css, vlastní JS do funkce
- * customJs() níže. Po změně spusť `npm run build` a commitni dist/.
+ * Styly jsou v src/appStyles.css. Po změně spusť `npm run build`
+ * a commitni dist/.
  */
 (function () {
   'use strict';
@@ -40,6 +40,12 @@
     var p = location.pathname;
     if (p === '/' || p === '') return 'home';
     if (p.indexOf('/oblibena-videa') === 0) return 'favorites';
+    try {
+      // "právě sledovaná" sdílí režim s oblíbenými (cesta se ukládá při
+      // nalezení odkazu v menu, viz watchedPath)
+      var wp = sessionStorage.getItem('pt-watched-path');
+      if (wp && p.indexOf(wp) === 0) return 'favorites';
+    } catch (e) { /* bez sessionStorage */ }
     if (p.indexOf('/hledej/') === 0) return 'search';
     if (document.getElementById('video-wrap')) return 'video';
     return 'other';
@@ -108,7 +114,7 @@
   // ------------------------------------------------------------------
   var FOCUS_SELECTORS = {
     home: 'input.video-search-phrase, .header__links a[href="#login"]',
-    favorites: 'input.video-search-phrase, a.video--link',
+    favorites: 'input.video-search-phrase, a.pt-switch, a.video--link',
     search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link',
     other: 'main a[href], main button, main input:not([type=hidden]), .header__links a, input.video-search-phrase',
   };
@@ -240,6 +246,45 @@
       el = el.parentElement;
     }
     return true;
+  }
+
+  // ------------------------------------------------------------------
+  // Přepínač Oblíbená videa ⇄ Právě sledovaná. Odkaz na "právě sledované
+  // uživateli" se zjistí z bočního menu (na TV je schované) a cesta se
+  // uloží, aby šla cílová stránka poznat i po přechodu.
+  // ------------------------------------------------------------------
+  function watchedPath() {
+    try {
+      var stored = sessionStorage.getItem('pt-watched-path');
+      if (stored) return stored;
+    } catch (e) { /* bez sessionStorage */ }
+    var links = document.querySelectorAll('a[href^="/"]');
+    for (var i = 0; i < links.length; i++) {
+      if (links[i].classList.contains('pt-switch')) continue;
+      if (/pr[áa]v[ěe]\s+sledovan/i.test(links[i].textContent || '')) {
+        var path = links[i].getAttribute('href');
+        try { sessionStorage.setItem('pt-watched-path', path); } catch (e) {}
+        return path;
+      }
+    }
+    return null;
+  }
+
+  function addSwitchButton() {
+    if (document.querySelector('.pt-switch')) return;
+    var header = document.querySelector('.header');
+    if (!header) return;
+    var onFavorites = location.pathname.indexOf('/oblibena-videa') === 0;
+    var target = onFavorites ? watchedPath() : '/oblibena-videa/';
+    if (!target) return;
+    var row = document.createElement('div');
+    row.className = 'pt-switch-row';
+    var a = document.createElement('a');
+    a.className = 'pt-switch';
+    a.href = target;
+    a.textContent = onFavorites ? 'Právě sledované uživateli' : 'Oblíbená videa';
+    row.appendChild(a);
+    header.appendChild(row);
   }
 
   // Info o premiu zarovnat na pravou hranu vyhledávacího pole
@@ -420,9 +465,11 @@
                    document.activeElement.classList.contains('video-search-phrase')) {
           // první Zpět jen zruší fokus vyhledávání, až další ukončí/vrátí
           document.activeElement.blur();
-        } else if (type === 'home' || type === 'favorites') {
+        } else if (type === 'home' ||
+                   (type === 'favorites' && location.pathname.indexOf('/oblibena-videa') === 0)) {
           exitApp();
         } else {
+          // na "právě sledovaných" a dalších stránkách vrací zpět
           history.back();
         }
         return;
@@ -513,13 +560,6 @@
     }
   }
 
-  // ------------------------------------------------------------------
-  // VLASTNÍ JS – sem piš svoje úpravy stránky
-  // ------------------------------------------------------------------
-  function customJs() {
-  }
-  // ------------------------------------------------------------------
-
   injectCss();
   // na TV se skript spouští ještě před parsováním dokumentu – zkoušet
   // vložit CSS co nejdřív, aby původní web vůbec neprobliknul
@@ -540,6 +580,7 @@
     tidyAccountBar();
     if (type === 'video') initVideoPage();
     if (type === 'favorites') {
+      addSwitchButton();
       var favTries = 0;
       var favTimer = setInterval(function () {
         if (tidyFavoritesLayout()) {
@@ -561,6 +602,5 @@
       }
     }, 250);
 
-    customJs();
   });
 })();

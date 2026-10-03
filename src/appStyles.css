@@ -212,6 +212,26 @@ body.pt-favorites .header__links {
   justify-content: flex-end;
 }
 
+/* přepínač Oblíbená videa / Právě sledovaná pod vyhledáváním */
+body.pt-favorites .pt-switch-row {
+  display: flex;
+  justify-content: center;
+  margin: 0.8rem 0 0.2rem;
+}
+
+body.pt-favorites a.pt-switch {
+  font-size: 1.1rem;
+  padding: 0.35rem 1.6rem;
+  border: 2px solid #777;
+  border-radius: 999px;
+  color: inherit;
+}
+
+body.pt-favorites a.pt-switch:focus {
+  outline: 4px solid #ffb400 !important;
+  outline-offset: 2px;
+}
+
 /* ===== Mřížka videí (oblíbená i vyhledávání): 6 karet vedle sebe,
    zarovnané doleva; .pt-fav-grid přidává na oblíbených skript ===== */
 body.pt-favorites .pt-fav-grid,
@@ -330,6 +350,13 @@ body.pt-video #content_video video {
   object-fit: contain;
   width: 100%;
   height: 100%;
+}
+
+/* ovládací lišta video.js se na TV nepoužívá (vše řeší ovladač) a její
+   neustálé překreslování jen ubírá výkon přehrávání */
+body.pt-video .vjs-control-bar,
+body.pt-video .vjs-big-play-button {
+  display: none !important;
 }
 
 /* Titulek a hodnocení jako overlay – viditelné jen při pauze */
