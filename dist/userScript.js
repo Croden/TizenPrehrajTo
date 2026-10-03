@@ -204,6 +204,39 @@
         item.style.display = 'none';
       }
     }
+    // tlačítko "Prodloužit" schovat, text s počtem dní premia nechat
+    var links = document.querySelectorAll('.header a, .header button, .top-bar a, .top-bar button');
+    for (var j = 0; j < links.length; j++) {
+      var t = (links[j].textContent || '').trim().toLowerCase();
+      if (/prodlou/.test(t) && !/\d+\s*dn/.test(t)) links[j].style.display = 'none';
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Oblíbená videa – schovat boční panel s menu, nechat jen mřížku
+  // videí přes celou šířku. Panel nemá známý selektor, proto se od
+  // videí stoupá k <main> a schovává se vše, co videa neobsahuje.
+  // ------------------------------------------------------------------
+  function tidyFavoritesLayout() {
+    var link = document.querySelector('a.video--link');
+    if (!link) return false;
+    var wrapper = (link.closest && link.closest('.video-wrapper')) || link;
+    var main = document.querySelector('main') || document.body;
+    if (!main.contains(wrapper)) return true;
+    var el = wrapper.parentElement;
+    while (el && el !== main && el !== document.body) {
+      var sibs = el.parentElement ? el.parentElement.children : [];
+      for (var i = 0; i < sibs.length; i++) {
+        var sib = sibs[i];
+        if (sib === el) continue;
+        if (sib.querySelector('a.video--link') || sib.querySelector('input.video-search-phrase')) continue;
+        sib.style.display = 'none';
+      }
+      el.style.width = '100%';
+      el.style.maxWidth = 'none';
+      el = el.parentElement;
+    }
+    return true;
   }
 
   // ------------------------------------------------------------------
@@ -279,6 +312,10 @@
         if (dialog) {
           var close = dialog.querySelector('.close-button');
           if (close) close.click();
+        } else if (document.activeElement && document.activeElement.classList &&
+                   document.activeElement.classList.contains('video-search-phrase')) {
+          // první Zpět jen zruší fokus vyhledávání, až další ukončí/vrátí
+          document.activeElement.blur();
         } else if (type === 'home' || type === 'favorites') {
           exitApp();
         } else {
@@ -381,6 +418,12 @@
     document.body.classList.add('pt-' + type);
     tidyAccountBar();
     if (type === 'video') initVideoPage();
+    if (type === 'favorites') {
+      var favTries = 0;
+      var favTimer = setInterval(function () {
+        if (tidyFavoritesLayout() || ++favTries > 20) clearInterval(favTimer);
+      }, 250);
+    }
 
     // Vue komponenta vyhledávání se renderuje chvíli po DOMContentLoaded
     var tries = 0;
