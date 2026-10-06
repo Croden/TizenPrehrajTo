@@ -316,20 +316,29 @@
     return null;
   }
 
+  function makeSwitch(label, href) {
+    // aktivní stránka je span – nedá se fokusovat ani otevřít
+    var el = document.createElement(href ? 'a' : 'span');
+    el.className = 'pt-switch' + (href ? '' : ' pt-switch--active');
+    if (href) el.href = href;
+    el.textContent = label;
+    return el;
+  }
+
   function addSwitchButton() {
-    if (document.querySelector('.pt-switch')) return;
+    if (document.querySelector('.pt-switch-row')) return;
     var header = document.querySelector('.header');
     if (!header) return;
     var onFavorites = location.pathname.indexOf('/oblibena-videa') === 0;
-    var target = onFavorites ? watchedPath() : '/oblibena-videa/';
-    if (!target) return;
     var row = document.createElement('div');
     row.className = 'pt-switch-row';
-    var a = document.createElement('a');
-    a.className = 'pt-switch';
-    a.href = target;
-    a.textContent = onFavorites ? 'Právě sledované uživateli' : 'Oblíbená videa';
-    row.appendChild(a);
+    row.appendChild(makeSwitch('Oblíbená videa', onFavorites ? null : '/oblibena-videa/'));
+    var wp = onFavorites ? watchedPath() : null;
+    if (!onFavorites) {
+      row.appendChild(makeSwitch('Právě sledované uživateli', null));
+    } else if (wp) {
+      row.appendChild(makeSwitch('Právě sledované uživateli', wp));
+    }
     header.appendChild(row);
   }
 
@@ -368,13 +377,14 @@
     var row = document.querySelector('.pt-switch-row');
     if (!row) return;
     var group = row.querySelector('.pt-filter-group');
-    var nodes = document.querySelectorAll('main a, main button, main label');
+    var nodes = document.querySelectorAll('main a, main button, main label, main span, main strong');
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
       if (el.classList.contains('pt-filter')) continue;
       if (el.closest && el.closest('.pt-filter-group')) continue;
       var t = (el.textContent || '').trim();
       if (!/^(24\s*hodin|7\s*dn[íi]|14\s*dn[íi])$/i.test(t)) continue;
+      if (el.querySelector && el.querySelector('a, button, span, strong')) continue;
       if (!group) {
         group = document.createElement('div');
         group.className = 'pt-filter-group';
@@ -383,6 +393,32 @@
       el.classList.add('pt-filter');
       group.appendChild(el);
     }
+    if (group) markActiveFilter(group);
+  }
+
+  // Zvýraznit aktivní filtr: podle třídy od webu, shody URL, aktivní
+  // bývá i prvek, který není odkaz; jinak výchozí = první (24 hodin)
+  function markActiveFilter(group) {
+    var btns = group.querySelectorAll('.pt-filter');
+    var active = null;
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      b.classList.remove('pt-filter--active');
+      if (/(^|\s)(active|is-active|selected|current)(\s|$)/.test(b.className)) {
+        active = b;
+      } else if (b.tagName !== 'A' && b.tagName !== 'BUTTON') {
+        if (!active) active = b;
+      } else if (b.href) {
+        try {
+          var u = new URL(b.getAttribute('href'), location.href);
+          if (u.pathname === location.pathname && u.search === location.search && location.search) {
+            active = b;
+          }
+        } catch (e) { /* neplatné URL */ }
+      }
+    }
+    if (!active && !location.search && btns.length) active = btns[0];
+    if (active) active.classList.add('pt-filter--active');
   }
 
   // Info o premiu zarovnat na pravou hranu vyhledávacího pole
@@ -412,6 +448,49 @@
     var q = (input.value || '').trim();
     if (!q) return;
     location.href = '/hledej/' + encodeURIComponent(q);
+  }
+
+  // ------------------------------------------------------------------
+  // Našeptávač vyhledávání – položky se vybírají šipkami, ale fokus
+  // zůstává v inputu (web našeptávač při ztrátě fokusu zavírá), výběr
+  // se jen zvýrazňuje a Enter ho otevře.
+  // ------------------------------------------------------------------
+  var suggestIdx = -1;
+
+  function suggestItems() {
+    var boxes = document.querySelectorAll('.suggest, .suggest-wrapper');
+    var raw = [];
+    for (var b = 0; b < boxes.length; b++) {
+      if (!isVisible(boxes[b])) continue;
+      var nodes = boxes[b].querySelectorAll('a, li, [class*="suggest-item"], [class*="suggest__item"]');
+      for (var i = 0; i < nodes.length; i++) {
+        if (isVisible(nodes[i]) && raw.indexOf(nodes[i]) === -1) raw.push(nodes[i]);
+      }
+    }
+    // nechat jen nejvnitřnější prvky (li > a by bylo dvakrát)
+    var items = [];
+    for (var j = 0; j < raw.length; j++) {
+      var nested = false;
+      for (var k = 0; k < raw.length; k++) {
+        if (j !== k && raw[j].contains(raw[k])) { nested = true; break; }
+      }
+      if (!nested) items.push(raw[j]);
+    }
+    return items;
+  }
+
+  function paintSuggestSel(items) {
+    var old = document.querySelectorAll('.pt-suggest-sel');
+    for (var i = 0; i < old.length; i++) old[i].classList.remove('pt-suggest-sel');
+    if (suggestIdx >= 0 && items && items[suggestIdx]) {
+      items[suggestIdx].classList.add('pt-suggest-sel');
+      try { items[suggestIdx].scrollIntoView({ block: 'nearest' }); } catch (e) {}
+    }
+  }
+
+  function clearSuggestSel() {
+    suggestIdx = -1;
+    paintSuggestSel(null);
   }
 
   // ------------------------------------------------------------------
@@ -567,8 +646,13 @@
           if (close) close.click();
         } else if (document.activeElement && document.activeElement.classList &&
                    document.activeElement.classList.contains('video-search-phrase')) {
-          // první Zpět jen zruší fokus vyhledávání, až další ukončí/vrátí
-          document.activeElement.blur();
+          // Zpět nejdřív zruší výběr v našeptávači, pak fokus
+          // vyhledávání, až další ukončí/vrátí
+          if (suggestIdx >= 0) {
+            clearSuggestSel();
+          } else {
+            document.activeElement.blur();
+          }
         } else if (type === 'home' ||
                    (type === 'favorites' && location.pathname.indexOf('/oblibena-videa') === 0)) {
           exitApp();
@@ -586,6 +670,21 @@
         }
         e.preventDefault();
         e.stopPropagation();
+        // ve vyhledávání s otevřeným našeptávačem vybírají šipky položky
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('video-search-phrase')) {
+          var sItems = suggestItems();
+          if (sItems.length) {
+            if (e.keyCode === KEY.DOWN) {
+              suggestIdx = Math.min(sItems.length - 1, suggestIdx + 1);
+            } else {
+              suggestIdx = Math.max(-1, suggestIdx - 1);
+            }
+            paintSuggestSel(sItems);
+            return;
+          }
+          clearSuggestSel();
+        }
         moveFocusRow(e.keyCode === KEY.DOWN ? 1 : -1);
         return;
 
@@ -614,6 +713,16 @@
             document.activeElement.classList.contains('video-search-phrase')) {
           e.preventDefault();
           e.stopPropagation();
+          // vybraná položka našeptávače má přednost před hledáním
+          var selItems = suggestItems();
+          if (suggestIdx >= 0 && selItems[suggestIdx]) {
+            var sel = selItems[suggestIdx];
+            clearSuggestSel();
+            var selLink = sel.tagName === 'A' ? sel : sel.querySelector && sel.querySelector('a');
+            if (sel.click) sel.click();
+            if (selLink && selLink.href) location.href = selLink.href;
+            return;
+          }
           submitSearch(document.activeElement);
           return;
         }
@@ -691,6 +800,13 @@
   }
   registerMediaKeys();
   window.addEventListener('keydown', onKeyDown, true);
+  // při psaní se nabídka našeptávače mění – výběr zrušit
+  window.addEventListener('input', function (ev) {
+    if (ev.target && ev.target.classList &&
+        ev.target.classList.contains('video-search-phrase')) {
+      clearSuggestSel();
+    }
+  }, true);
 
   whenDomReady(function () {
     injectCss();

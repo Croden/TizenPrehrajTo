@@ -83,6 +83,15 @@ body.pt-favorites .video-favorite :focus {
   opacity: 1;
 }
 
+/* vybraná položka našeptávače (vybírá se šipkami, fokus zůstává
+   v inputu, jinak by web nabídku zavřel) */
+.pt-suggest-sel {
+  outline: 4px solid #ffb400 !important;
+  outline-offset: -2px;
+  background: rgba(255, 180, 0, 0.18) !important;
+  border-radius: 4px;
+}
+
 #feedback,
 .popup,
 .nav--mobile,
@@ -260,6 +269,7 @@ body.pt-favorites .pt-switch-row {
   position: relative;
   display: flex;
   justify-content: center;
+  gap: 1rem;
   margin: 1rem 0 0.5rem;
 }
 
@@ -294,10 +304,8 @@ body.pt-favorites .pt-filter-group .pt-filter:focus {
   outline-offset: 2px;
 }
 
-/* aktivní filtr (web si značí vybraný různě, pokrýt běžné třídy) */
-body.pt-favorites .pt-filter-group .pt-filter.active,
-body.pt-favorites .pt-filter-group .pt-filter.is-active,
-body.pt-favorites .pt-filter-group .pt-filter.selected {
+/* aktivní filtr – značí ho skript podle třídy od webu nebo shody URL */
+body.pt-favorites .pt-filter-group .pt-filter--active {
   background: #ffb400;
   border-color: #ffb400;
   color: #000 !important;
@@ -315,12 +323,19 @@ body.pt-favorites .pagination a:focus {
   outline-offset: 2px;
 }
 
-body.pt-favorites a.pt-switch {
+body.pt-favorites .pt-switch {
   font-size: 1.1rem;
   padding: 0.35rem 1.6rem;
   border: 2px solid #777;
   border-radius: 999px;
   color: inherit;
+}
+
+/* aktivní stránka – zvýrazněná, nejde fokusovat (je to span) */
+body.pt-favorites .pt-switch--active {
+  background: #ffb400;
+  border-color: #ffb400;
+  color: #000;
 }
 
 body.pt-favorites a.pt-switch:focus {
