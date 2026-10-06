@@ -83,13 +83,35 @@ body.pt-favorites .video-favorite :focus {
   opacity: 1;
 }
 
-/* vybraná položka našeptávače (vybírá se šipkami, fokus zůstává
-   v inputu, jinak by web nabídku zavřel) */
-.pt-suggest-sel {
-  outline: 4px solid #ffb400 !important;
-  outline-offset: -2px;
-  background: rgba(255, 180, 0, 0.18) !important;
-  border-radius: 4px;
+/* vlastní našeptávač (#pt-suggest) – kopie nabídky webu s reálně
+   fokusovatelnými položkami; fokus musí z inputu odejít, jinak OK
+   na TV jen znovu otevře klávesnici */
+#pt-suggest {
+  position: fixed;
+  z-index: 9600;
+  background: #1b1b1b;
+  border: 2px solid #777;
+  border-radius: 8px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 0.3rem 0;
+}
+
+.pt-suggest-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: #fff;
+  font-size: 1.2rem;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pt-suggest-item:focus {
+  outline: none;
+  background: #ffb400;
+  color: #000;
 }
 
 #feedback,
@@ -226,6 +248,20 @@ body.pt-search input.video-search-phrase {
   width: 100% !important;
 }
 
+/* tlačítko filtrů ve výsledcích – stejné žluté zvýraznění jako
+   aktivní přepínač/filtr na oblíbených */
+body.pt-search .button--filters {
+  background: #ffb400 !important;
+  border: 2px solid #ffb400 !important;
+  border-radius: 8px;
+  color: #000 !important;
+}
+
+body.pt-search .button--filters:focus {
+  outline: 4px solid #ffb400 !important;
+  outline-offset: 3px;
+}
+
 /* ===== Oblíbená videa (výchozí stránka) – search + premium + videa ===== */
 body.pt-favorites .logo,
 body.pt-favorites .nav,
@@ -343,7 +379,7 @@ body.pt-favorites a.pt-switch:focus {
   outline-offset: 2px;
 }
 
-/* ===== Mřížka videí (oblíbená i vyhledávání): 6 karet vedle sebe,
+/* ===== Mřížka videí (oblíbená i vyhledávání): 5 karet vedle sebe,
    zarovnané doleva; .pt-fav-grid přidává na oblíbených skript ===== */
 body.pt-favorites .pt-fav-grid,
 body.pt-search .video-listing {
@@ -357,7 +393,7 @@ body.pt-search .video-listing {
 body.pt-favorites .pt-fav-grid > *,
 body.pt-search .video-listing > .video-wrapper {
   flex: 0 0 auto;
-  width: calc(100% / 6 - 1rem) !important;
+  width: calc(100% / 5 - 1rem) !important;
   max-width: none !important;
   margin: 0.5rem !important;
 }

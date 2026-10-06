@@ -451,11 +451,10 @@
   }
 
   // ------------------------------------------------------------------
-  // Našeptávač vyhledávání – položky se vybírají šipkami, ale fokus
-  // zůstává v inputu (web našeptávač při ztrátě fokusu zavírá), výběr
-  // se jen zvýrazňuje a Enter ho otevře.
+  // Našeptávač vyhledávání – šipka dolů zkopíruje nabídku webu do
+  // vlastního fokusovatelného seznamu (#pt-suggest). Fokus musí z
+  // inputu odejít, jinak OK na TV jen znovu otevře klávesnici.
   // ------------------------------------------------------------------
-  var suggestIdx = -1;
 
   function suggestItems() {
     var boxes = document.querySelectorAll('.suggest, .suggest-wrapper');
@@ -479,18 +478,67 @@
     return items;
   }
 
-  function paintSuggestSel(items) {
-    var old = document.querySelectorAll('.pt-suggest-sel');
-    for (var i = 0; i < old.length; i++) old[i].classList.remove('pt-suggest-sel');
-    if (suggestIdx >= 0 && items && items[suggestIdx]) {
-      items[suggestIdx].classList.add('pt-suggest-sel');
-      try { items[suggestIdx].scrollIntoView({ block: 'nearest' }); } catch (e) {}
+  // poslední nabídka pro aktuální text – web ji po odchodu fokusu z
+  // inputu schová, overlay se pak staví z této kopie
+  var lastSuggest = null;
+
+  function closeSuggestOverlay(refocus) {
+    var box = document.getElementById('pt-suggest');
+    if (box && box.parentElement) box.parentElement.removeChild(box);
+    if (refocus) {
+      var input = document.querySelector('input.video-search-phrase');
+      if (input) focusEl(input);
     }
   }
 
-  function clearSuggestSel() {
-    suggestIdx = -1;
-    paintSuggestSel(null);
+  function openSuggestOverlay() {
+    var input = document.querySelector('input.video-search-phrase');
+    if (!input) return false;
+    var live = suggestItems();
+    var entries = [];
+    for (var i = 0; i < live.length; i++) {
+      var src = live[i];
+      var link = src.tagName === 'A' ? src : (src.querySelector && src.querySelector('a'));
+      entries.push({
+        href: link && link.getAttribute('href'),
+        text: (src.textContent || '').trim(),
+        el: src,
+      });
+    }
+    if (entries.length) {
+      lastSuggest = { value: input.value, entries: entries };
+    } else if (lastSuggest && lastSuggest.value === input.value) {
+      // web nabídku po blur schoval – použít poslední známou kopii
+      entries = lastSuggest.entries;
+    }
+    if (!entries.length) return false;
+    closeSuggestOverlay(false);
+    var box = document.createElement('div');
+    box.id = 'pt-suggest';
+    for (var j = 0; j < entries.length; j++) {
+      (function (entry) {
+        var a = document.createElement('a');
+        a.className = 'pt-suggest-item';
+        a.href = entry.href || '#';
+        a.textContent = entry.text;
+        if (!entry.href) {
+          a.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            if (entry.el && entry.el.click) entry.el.click();
+          });
+        }
+        box.appendChild(a);
+      })(entries[j]);
+    }
+    var r = input.getBoundingClientRect();
+    box.style.left = r.left + 'px';
+    box.style.top = (r.bottom + 4) + 'px';
+    box.style.width = r.width + 'px';
+    document.body.appendChild(box);
+    // fokus nesmí zůstat v inputu, jinak OK znovu otevře klávesnici
+    input.blur();
+    focusEl(box.firstChild);
+    return true;
   }
 
   // ------------------------------------------------------------------
@@ -644,15 +692,13 @@
         if (dialog) {
           var close = dialog.querySelector('.close-button');
           if (close) close.click();
+        } else if (document.getElementById('pt-suggest')) {
+          // Zpět zavře našeptávač a vrátí fokus do vyhledávání
+          closeSuggestOverlay(true);
         } else if (document.activeElement && document.activeElement.classList &&
                    document.activeElement.classList.contains('video-search-phrase')) {
-          // Zpět nejdřív zruší výběr v našeptávači, pak fokus
-          // vyhledávání, až další ukončí/vrátí
-          if (suggestIdx >= 0) {
-            clearSuggestSel();
-          } else {
-            document.activeElement.blur();
-          }
+          // Zpět zruší fokus vyhledávání, až další ukončí/vrátí
+          document.activeElement.blur();
         } else if (type === 'home' ||
                    (type === 'favorites' && location.pathname.indexOf('/oblibena-videa') === 0)) {
           exitApp();
@@ -670,20 +716,26 @@
         }
         e.preventDefault();
         e.stopPropagation();
-        // ve vyhledávání s otevřeným našeptávačem vybírají šipky položky
+        // pohyb v otevřeném našeptávači
         if (document.activeElement && document.activeElement.classList &&
-            document.activeElement.classList.contains('video-search-phrase')) {
-          var sItems = suggestItems();
-          if (sItems.length) {
-            if (e.keyCode === KEY.DOWN) {
-              suggestIdx = Math.min(sItems.length - 1, suggestIdx + 1);
-            } else {
-              suggestIdx = Math.max(-1, suggestIdx - 1);
-            }
-            paintSuggestSel(sItems);
-            return;
+            document.activeElement.classList.contains('pt-suggest-item')) {
+          var item = document.activeElement;
+          if (e.keyCode === KEY.DOWN) {
+            if (item.nextElementSibling) focusEl(item.nextElementSibling);
+          } else if (item.previousElementSibling) {
+            focusEl(item.previousElementSibling);
+          } else {
+            // nahoru z první položky zpět do vyhledávání
+            closeSuggestOverlay(true);
           }
-          clearSuggestSel();
+          return;
+        }
+        // šipka dolů ve vyhledávání otevře našeptávač (pokud web nabízí)
+        if (e.keyCode === KEY.DOWN &&
+            document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('video-search-phrase') &&
+            openSuggestOverlay()) {
+          return;
         }
         moveFocusRow(e.keyCode === KEY.DOWN ? 1 : -1);
         return;
@@ -693,6 +745,13 @@
         if (type === 'video' && !dialog) {
           e.preventDefault();
           seek(e.keyCode === KEY.RIGHT ? SEEK_STEP_SECONDS : -SEEK_STEP_SECONDS);
+          return;
+        }
+        // v otevřeném našeptávači doleva/doprava nic nedělá
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-suggest-item')) {
+          e.preventDefault();
+          e.stopPropagation();
           return;
         }
         // v gridu výsledků posouvá fokus i doleva/doprava; v inputu nechat kurzor
@@ -709,20 +768,18 @@
           togglePlay();
           return;
         }
+        // OK na položce našeptávače ji otevře
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-suggest-item')) {
+          e.preventDefault();
+          e.stopPropagation();
+          document.activeElement.click();
+          return;
+        }
         if (document.activeElement && document.activeElement.classList &&
             document.activeElement.classList.contains('video-search-phrase')) {
           e.preventDefault();
           e.stopPropagation();
-          // vybraná položka našeptávače má přednost před hledáním
-          var selItems = suggestItems();
-          if (suggestIdx >= 0 && selItems[suggestIdx]) {
-            var sel = selItems[suggestIdx];
-            clearSuggestSel();
-            var selLink = sel.tagName === 'A' ? sel : sel.querySelector && sel.querySelector('a');
-            if (sel.click) sel.click();
-            if (selLink && selLink.href) location.href = selLink.href;
-            return;
-          }
           submitSearch(document.activeElement);
           return;
         }
@@ -800,13 +857,6 @@
   }
   registerMediaKeys();
   window.addEventListener('keydown', onKeyDown, true);
-  // při psaní se nabídka našeptávače mění – výběr zrušit
-  window.addEventListener('input', function (ev) {
-    if (ev.target && ev.target.classList &&
-        ev.target.classList.contains('video-search-phrase')) {
-      clearSuggestSel();
-    }
-  }, true);
 
   whenDomReady(function () {
     injectCss();

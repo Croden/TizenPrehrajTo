@@ -1,7 +1,7 @@
 {
   "name": "tizenprehrajto",
   "appName": "TizenPrehrajTo",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "TizenBrew mod: prehrajto.cz wrapper s vlastním CSS/JS pro Samsung TV",
   "packageType": "mods",
   "websiteURL": "https://prehrajto.cz/oblibena-videa/",
