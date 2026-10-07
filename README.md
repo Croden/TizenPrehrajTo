@@ -8,13 +8,14 @@ Aplikace pro Samsung TV (Tizen), která přináší [prehrajto.cz](https://prehr
 - **Přepínač pod vyhledáváním** – přepíná mezi oblíbenými a právě sledovanými videi
 - **Ovládání dálkovým ovladačem** – šipkami se pohybuješ mezi prvky, Enter vybírá
   - šipky doleva/doprava přepínají mezi videi, šipka dolů zaměří srdíčko pro přidání/odebrání z oblíbených, další stisk pokračuje v mřížce dolů
-- **Vyhledávání** – po vyhledání zůstanou jen výsledky a filtry, první video se rovnou zaměří; návrhy našeptávače se vybírají šipkami nahoru/dolů a otevírají Enterem
+  - srdíčko přidá i odebere video z oblíbených na jeden stisk (dialog s výběrem seznamů se vyřídí automaticky)
+- **Vyhledávání** – po vyhledání zůstanou jen výsledky a filtry, první video se rovnou zaměří; Zpět zavře klávesnici a rovnou označí první návrh našeptávače, šipky nahoru/dolů vybírají návrhy, Enter otevírá a šipka nahoru z prvního návrhu vrací do vyhledávání
 - **Přehrávání přes celou obrazovku** – video se po otevření samo spustí ve fullscreenu
   - **Enter** – pauza / přehrát (při pauze se zobrazí název a hodnocení videa)
   - **šipky doleva/doprava** – skok zpět/vpřed
   - fungují i mediální tlačítka (Play/Pause, Stop, převíjení)
   - **Channel ▲** – přepíná zvukovou stopu, **Channel ▼** – přepíná titulky (pokud je video má)
-- **Tlačítko Zpět** – vrací na předchozí stránku; pokud je fokus ve vyhledávání, první Zpět jen zruší fokus, další na úvodní obrazovce ukončí aplikaci
+- **Tlačítko Zpět** – vrací na předchozí stránku; ve vyhledávání přejde na návrhy našeptávače (bez návrhů jen zruší fokus), na úvodní obrazovce ukončí aplikaci
 
 ## Instalace
 

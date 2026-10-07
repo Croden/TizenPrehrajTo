@@ -62,6 +62,17 @@ body.pt-favorites .video-favorite :focus {
   border-radius: 4px;
 }
 
+/* dialog výběru seznamů po kliknutí na srdíčko vyřizuje skript sám
+   (odklikne checkbox) – nemá ani probliknout; visibility (ne display)
+   kvůli zachování layoutu pro detekci checkboxů */
+body.pt-fav-auto .reveal-overlay,
+body.pt-fav-auto .reveal,
+body.pt-fav-auto .dialog,
+body.pt-fav-auto .modal,
+body.pt-fav-auto [class*="popup"] {
+  visibility: hidden !important;
+}
+
 /* OSD hláška (přepínání zvuku/titulků) */
 #pt-osd {
   position: fixed;

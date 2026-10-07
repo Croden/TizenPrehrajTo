@@ -170,6 +170,76 @@
       (wrap && wrap.querySelector('a.video--link'));
   }
 
+  // U videa v oblíbených otevře klik na srdíčko dialog s výběrem
+  // seznamů. Na TV ho obsloužíme automaticky: skrytý (body.pt-fav-auto)
+  // se v něm odklikne checkbox seznamu a dialog se zavře – odlajknutí
+  // i lajknutí tak funguje na jeden stisk. Dialog neznáme předem,
+  // pozná se podle checkboxů, které po kliknutí získaly rozměry
+  // (visibility:hidden z pt-fav-auto layout zachovává).
+  function hasLayout(el) {
+    var r = el.getBoundingClientRect();
+    return r.width > 0 || r.height > 0;
+  }
+
+  // snímek checkboxů před kliknutím: prvek + zda měl rozměry
+  function snapshotBoxes() {
+    var all = document.querySelectorAll('input[type=checkbox]');
+    var snap = [];
+    for (var i = 0; i < all.length; i++) {
+      snap.push({ el: all[i], vis: hasLayout(all[i]) });
+    }
+    return snap;
+  }
+
+  function autoResolveFavDialog(preBoxes) {
+    document.body.classList.add('pt-fav-auto');
+    var tries = 0;
+    var timer = setInterval(function () {
+      var all = document.querySelectorAll('input[type=checkbox]');
+      var fresh = [];
+      for (var i = 0; i < all.length; i++) {
+        var known = null;
+        for (var k = 0; k < preBoxes.length; k++) {
+          if (preBoxes[k].el === all[i]) { known = preBoxes[k]; break; }
+        }
+        // nový checkbox, nebo starý který teprve teď dostal rozměry
+        if (!known || (!known.vis && hasLayout(all[i]))) fresh.push(all[i]);
+      }
+      if (!fresh.length) {
+        // dialog se neobjevil (lajk proběhl rovnou) – po 2 s skončit
+        if (++tries > 20) {
+          clearInterval(timer);
+          document.body.classList.remove('pt-fav-auto');
+        }
+        return;
+      }
+      clearInterval(timer);
+      // zaškrtnutý checkbox = video v seznamu → odškrtnout (odlajkne);
+      // jinak zaškrtnout první (lajkne)
+      var target = null;
+      for (var j = 0; j < fresh.length; j++) {
+        if (fresh[j].checked) { target = fresh[j]; break; }
+      }
+      if (!target) target = fresh[0];
+      target.click();
+      var box = target.closest &&
+        target.closest('.reveal, .dialog, .modal, [class*="popup"], [class*="dialog"]');
+      // chvíli počkat, ať web stihne změnu odeslat, pak dialog zavřít
+      setTimeout(function () {
+        var close = box && box.querySelector('.close-button, [data-close], button[class*="close"]');
+        if (close) {
+          close.click();
+        } else if (box) {
+          box.style.display = 'none';
+          if (box.parentElement && box.parentElement.classList.contains('reveal-overlay')) {
+            box.parentElement.style.display = 'none';
+          }
+        }
+        document.body.classList.remove('pt-fav-auto');
+      }, 400);
+    }, 100);
+  }
+
   function moveFocus(dir) {
     var list = focusables();
     if (!list.length) return;
@@ -697,8 +767,9 @@
           closeSuggestOverlay(true);
         } else if (document.activeElement && document.activeElement.classList &&
                    document.activeElement.classList.contains('video-search-phrase')) {
-          // Zpět zruší fokus vyhledávání, až další ukončí/vrátí
-          document.activeElement.blur();
+          // Zpět zavře TV klávesnici – rovnou přejít na první návrh
+          // našeptávače; bez návrhů jen zrušit fokus
+          if (!openSuggestOverlay()) document.activeElement.blur();
         } else if (type === 'home' ||
                    (type === 'favorites' && location.pathname.indexOf('/oblibena-videa') === 0)) {
           exitApp();
@@ -783,12 +854,15 @@
           submitSearch(document.activeElement);
           return;
         }
-        // Enter na srdíčku jen přepne oblíbené, nesmí otevřít video
+        // Enter na srdíčku jen přepne oblíbené, nesmí otevřít video;
+        // případný dialog s výběrem seznamů se vyřídí automaticky
         if (document.activeElement && document.activeElement.closest &&
             document.activeElement.closest('.video-favorite')) {
           e.preventDefault();
           e.stopPropagation();
+          var preBoxes = snapshotBoxes();
           document.activeElement.click();
+          autoResolveFavDialog(preBoxes);
         }
         return;
 
