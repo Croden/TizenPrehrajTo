@@ -181,6 +181,13 @@
     return r.width > 0 || r.height > 0;
   }
 
+  // označit vše, co v DOM existuje před kliknutím na srdíčko – nové
+  // prvky (dialog/popover) se pak poznají podle chybějící značky
+  function markExisting() {
+    var all = document.getElementsByTagName('*');
+    for (var i = 0; i < all.length; i++) all[i].__ptPre = true;
+  }
+
   // snímek checkboxů před kliknutím: prvek + zda měl rozměry
   function snapshotBoxes() {
     var all = document.querySelectorAll('input[type=checkbox]');
@@ -191,7 +198,7 @@
     return snap;
   }
 
-  function autoResolveFavDialog(preBoxes) {
+  function autoResolveFavDialog(preBoxes, heart) {
     document.body.classList.add('pt-fav-auto');
     var tries = 0;
     var timer = setInterval(function () {
@@ -202,7 +209,8 @@
         for (var k = 0; k < preBoxes.length; k++) {
           if (preBoxes[k].el === all[i]) { known = preBoxes[k]; break; }
         }
-        // nový checkbox, nebo starý který teprve teď dostal rozměry
+        // nový checkbox, nebo starý (znovupoužitý popover), který
+        // teprve teď dostal rozměry
         if (!known || (!known.vis && hasLayout(all[i]))) fresh.push(all[i]);
       }
       if (!fresh.length) {
@@ -221,19 +229,31 @@
         if (fresh[j].checked) { target = fresh[j]; break; }
       }
       if (!target) target = fresh[0];
+      // kořen dialogu = nejvyšší nově vzniklý předek checkboxu
+      var root = target;
+      while (root.parentElement && root.parentElement !== document.body &&
+             !root.parentElement.__ptPre) {
+        root = root.parentElement;
+      }
+      if (root === target) {
+        root = (target.closest &&
+          target.closest('.reveal, .dialog, .modal, [class*="popup"], [class*="tooltip"], [class*="dialog"], [class*="favorite-list"]')) ||
+          target.parentElement;
+      }
+      // trvale neviditelný (visibility kvůli zachování layoutu pro
+      // příští detekci) – nesmí zůstat „viset" na obrazovce
+      if (root && root.classList) root.classList.add('pt-fav-dialog');
       target.click();
-      var box = target.closest &&
-        target.closest('.reveal, .dialog, .modal, [class*="popup"], [class*="dialog"]');
       // chvíli počkat, ať web stihne změnu odeslat, pak dialog zavřít
       setTimeout(function () {
-        var close = box && box.querySelector('.close-button, [data-close], button[class*="close"]');
+        var close = root && root.querySelector &&
+          root.querySelector('.close-button, [data-close], button[class*="close"]');
         if (close) {
           close.click();
-        } else if (box) {
-          box.style.display = 'none';
-          if (box.parentElement && box.parentElement.classList.contains('reveal-overlay')) {
-            box.parentElement.style.display = 'none';
-          }
+        } else if (heart && heart.click) {
+          // popover bez zavíracího tlačítka se zavírá dalším klikem
+          // na srdíčko (toggle)
+          heart.click();
         }
         document.body.classList.remove('pt-fav-auto');
       }, 400);
@@ -860,9 +880,11 @@
             document.activeElement.closest('.video-favorite')) {
           e.preventDefault();
           e.stopPropagation();
+          var heart = document.activeElement;
+          markExisting();
           var preBoxes = snapshotBoxes();
-          document.activeElement.click();
-          autoResolveFavDialog(preBoxes);
+          heart.click();
+          autoResolveFavDialog(preBoxes, heart);
         }
         return;
 

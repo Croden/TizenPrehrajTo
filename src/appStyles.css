@@ -69,7 +69,14 @@ body.pt-fav-auto .reveal-overlay,
 body.pt-fav-auto .reveal,
 body.pt-fav-auto .dialog,
 body.pt-fav-auto .modal,
-body.pt-fav-auto [class*="popup"] {
+body.pt-fav-auto [class*="popup"],
+body.pt-fav-auto [class*="tooltip"] {
+  visibility: hidden !important;
+}
+
+/* jednou obsloužený dialog/popover zůstává neviditelný napořád –
+   visibility (ne display), aby mu zůstal layout pro příští detekci */
+.pt-fav-dialog {
   visibility: hidden !important;
 }
 
