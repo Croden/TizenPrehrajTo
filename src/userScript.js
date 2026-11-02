@@ -115,7 +115,7 @@
   var FOCUS_SELECTORS = {
     home: 'input.video-search-phrase, .header__links a[href="#login"]',
     favorites: 'input.video-search-phrase, a.pt-switch, .pt-filter-group a, .pt-filter-group button, a.video--link, .pagination a',
-    search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link',
+    search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link, .pagination a',
     other: 'main a[href], main button, main input:not([type=hidden]), .header__links a, input.video-search-phrase',
   };
 
@@ -511,7 +511,8 @@
     if (active) active.classList.add('pt-filter--active');
   }
 
-  // Info o premiu zarovnat na pravou hranu vyhledávacího pole
+  // Info o premiu zarovnat na pravou hranu vyhledávacího pole –
+  // měří se vnitřní odkaz (vizuální box s rámečkem), ne jen text
   function alignPremiumToSearch() {
     var input = document.querySelector('input.video-search-phrase');
     var links = document.querySelector('.header__links');
@@ -521,13 +522,40 @@
     for (var i = 0; i < lis.length; i++) {
       if (isVisible(lis[i])) { item = lis[i]; break; }
     }
-    var r = (item || links).getBoundingClientRect();
+    var box = item ? (item.querySelector('a, button') || item) : links;
+    var r = box.getBoundingClientRect();
     var ir = input.getBoundingClientRect();
     if (!r.width || !ir.width) return;
     var d = Math.round(r.right - ir.right);
     if (d) {
       links.style.marginRight =
         ((parseFloat(getComputedStyle(links).marginRight) || 0) + d) + 'px';
+    }
+  }
+
+  // Paginaci zarovnat s hranami mřížky videí (karty mají 0.5rem
+  // margin, takže začínají kousek od kraje kontejneru). Volá se
+  // opakovaně z intervalu – po srovnání jsou korekce nulové.
+  function alignPagination() {
+    var grid = document.querySelector('.pt-fav-grid, .video-listing');
+    var pag = document.querySelector('.pagination');
+    if (!grid || !pag || !isVisible(pag)) return;
+    var first = grid.querySelector('.video-wrapper') || grid.firstElementChild;
+    if (!first) return;
+    var g = grid.getBoundingClientRect();
+    var left = first.getBoundingClientRect().left;
+    var inset = left - g.left;
+    var p = pag.getBoundingClientRect();
+    if (!p.width) return;
+    var dl = Math.round(left - p.left);
+    if (dl) {
+      pag.style.marginLeft =
+        ((parseFloat(getComputedStyle(pag).marginLeft) || 0) + dl) + 'px';
+    }
+    var dr = Math.round(p.right - (g.right - inset));
+    if (dr) {
+      pag.style.marginRight =
+        ((parseFloat(getComputedStyle(pag).marginRight) || 0) + dr) + 'px';
     }
   }
 
@@ -571,10 +599,32 @@
   // poslední nabídka pro aktuální text – web ji po odchodu fokusu z
   // inputu schová, overlay se pak staví z této kopie
   var lastSuggest = null;
+  // nativní dropdown webu schovaný po dobu otevřeného overlaye,
+  // aby pod ním neprosvítal
+  var hiddenNativeSuggest = [];
+
+  function hideNativeSuggest(items, input) {
+    for (var i = 0; i < items.length; i++) {
+      // vystoupat k nejvyššímu předku, který neobsahuje input –
+      // to je kontejner dropdownu (sourozenecká větev inputu)
+      var el = items[i];
+      while (el.parentElement && !el.parentElement.contains(input)) {
+        el = el.parentElement;
+      }
+      if (el && hiddenNativeSuggest.indexOf(el) === -1) {
+        el.classList.add('pt-native-suggest-hidden');
+        hiddenNativeSuggest.push(el);
+      }
+    }
+  }
 
   function closeSuggestOverlay(refocus) {
     var box = document.getElementById('pt-suggest');
     if (box && box.parentElement) box.parentElement.removeChild(box);
+    for (var i = 0; i < hiddenNativeSuggest.length; i++) {
+      hiddenNativeSuggest[i].classList.remove('pt-native-suggest-hidden');
+    }
+    hiddenNativeSuggest = [];
     if (refocus) {
       var input = document.querySelector('input.video-search-phrase');
       if (input) focusEl(input);
@@ -603,6 +653,7 @@
     }
     if (!entries.length) return false;
     closeSuggestOverlay(false);
+    if (live.length) hideNativeSuggest(live, input);
     var box = document.createElement('div');
     box.id = 'pt-suggest';
     for (var j = 0; j < entries.length; j++) {
@@ -730,27 +781,46 @@
     showOsd('Zvuk: ' + trackName(tracks[next], next));
   }
 
-  function cycleSubtitles() {
-    var tracks = getTrackLists().text;
+  function subtitleTracks(list) {
     var subs = [];
-    if (tracks) {
-      for (var i = 0; i < tracks.length; i++) {
-        if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') subs.push(tracks[i]);
+    if (list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].kind === 'subtitles' || list[i].kind === 'captions') subs.push(list[i]);
       }
     }
-    if (!subs.length) {
+    return subs;
+  }
+
+  function cycleSubtitles() {
+    // video.js drží vlastní (emulovaný) seznam stop vedle nativního –
+    // režim se musí přepnout v obou, jinak se titulky nevykreslí
+    var lists = [];
+    var t = getTrackLists().text;
+    if (t) lists.push(t);
+    var v = activeVideo();
+    if (v && v.textTracks && lists.indexOf(v.textTracks) === -1) lists.push(v.textTracks);
+    var primary = null;
+    for (var i = 0; i < lists.length; i++) {
+      var s = subtitleTracks(lists[i]);
+      if (s.length) { primary = s; break; }
+    }
+    if (!primary) {
       showOsd('Žádné titulky');
       return;
     }
     var cur = -1;
-    for (var j = 0; j < subs.length; j++) {
-      if (subs[j].mode === 'showing') { cur = j; break; }
+    for (var j = 0; j < primary.length; j++) {
+      if (primary[j].mode === 'showing') { cur = j; break; }
     }
     var next = cur + 1; // po poslední stopě se titulky vypnou
-    for (var k = 0; k < subs.length; k++) subs[k].mode = 'disabled';
-    if (next < subs.length) {
-      subs[next].mode = 'showing';
-      showOsd('Titulky: ' + trackName(subs[next], next));
+    for (var l = 0; l < lists.length; l++) {
+      var subs = subtitleTracks(lists[l]);
+      for (var k = 0; k < subs.length; k++) {
+        subs[k].mode = (k === next ? 'showing' : 'disabled');
+      }
+    }
+    if (next < primary.length) {
+      showOsd('Titulky: ' + trackName(primary[next], next));
     } else {
       showOsd('Titulky: vypnuto');
     }
@@ -975,7 +1045,10 @@
       setInterval(moveTimeFilters, 500);
     }
     if (type === 'favorites' || type === 'search') {
-      setInterval(placeFavorites, 500);
+      setInterval(function () {
+        placeFavorites();
+        alignPagination();
+      }, 500);
     }
 
     // Vue komponenta vyhledávání se renderuje chvíli po DOMContentLoaded

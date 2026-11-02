@@ -1,6 +1,15 @@
 /*
  * Funkční styly aplikace TizenPrehrajTo (režimy stránek, fokus, fullscreen player).
  * Vlastní vizuální úpravy patří do userStyles.css, ne sem.
+ *
+ * Jednotná paleta ovládacích prvků (CSS proměnné nejsou kvůli starším
+ * Tizenům – hodnoty držet synchronní ručně):
+ *   pozadí tlačítek  #333
+ *   rámeček          2px solid #777
+ *   text             #fff
+ *   akcent (aktivní) #ffb400, text na akcentu #000
+ *   border-radius    8px
+ *   fokus/hover      outline 4px solid #ffb400, offset 2px
  */
 
 /* ===== Globální ===== */
@@ -107,12 +116,18 @@ body.pt-fav-auto [class*="tooltip"] {
 #pt-suggest {
   position: fixed;
   z-index: 9600;
-  background: #1b1b1b;
+  background: #333;
   border: 2px solid #777;
   border-radius: 8px;
   max-height: 60vh;
   overflow: auto;
   padding: 0.3rem 0;
+}
+
+/* nativní dropdown webu je po dobu otevřeného overlaye schovaný,
+   aby pod ním neprosvítal (třídu přidává/odebírá skript) */
+.pt-native-suggest-hidden {
+  visibility: hidden !important;
 }
 
 .pt-suggest-item {
@@ -140,21 +155,29 @@ footer.footer {
   display: none !important;
 }
 
+/* jednotný fokus/hover pro všechny ovládací prvky */
 input.video-search-phrase:focus,
 .header__links a:focus,
 .button--filters:focus,
+.button--filters:hover,
 .filters-group__item:focus,
 .dialog a:focus,
 .dialog button:focus,
-.dialog input:focus {
+.dialog input:focus,
+.pagination a:focus,
+.pagination a:hover,
+a.pt-switch:focus,
+a.pt-switch:hover,
+.pt-filter:focus,
+.pt-filter:hover {
   outline: 4px solid #ffb400 !important;
   outline-offset: 2px;
 }
 
 a.video--link:focus {
-  outline: 5px solid #ffb400 !important;
-  outline-offset: 3px;
-  border-radius: 4px;
+  outline: 4px solid #ffb400 !important;
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 /* ===== Domovská stránka – jen vyhledávání + přihlásit ===== */
@@ -311,9 +334,22 @@ body.pt-favorites input.video-search-phrase {
   width: 100% !important;
 }
 
-/* premium info v liště nechat viditelné a decentní */
+/* premium info v liště – stejný šedý box jako ostatní prvky,
+   pravou hranou zarovnaný na search (dorovnává skript) */
 body.pt-favorites .header__links {
   justify-content: flex-end;
+}
+
+body.pt-favorites .header__links li a,
+body.pt-favorites .header__links li button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 1.2rem;
+  background: #333;
+  color: #fff !important;
+  border: 2px solid #777;
+  border-radius: 8px;
+  text-decoration: none;
 }
 
 /* přepínač Oblíbená videa / Právě sledovaná pod vyhledáváním
@@ -347,15 +383,10 @@ body.pt-favorites .pt-filter-group .pt-filter {
   padding: 0.35rem 1.2rem;
   background: #333;
   color: #fff !important;
-  border: 2px solid #888;
+  border: 2px solid #777;
   border-radius: 8px;
   text-decoration: none;
   cursor: pointer;
-}
-
-body.pt-favorites .pt-filter-group .pt-filter:focus {
-  outline: 4px solid #ffb400 !important;
-  outline-offset: 2px;
 }
 
 /* aktivní filtr – značí ho skript podle třídy od webu nebo shody URL */
@@ -371,18 +402,27 @@ body.pt-favorites main .section {
   margin-top: 0 !important;
 }
 
-/* paginace (hlavně u právě sledovaných) */
-body.pt-favorites .pagination a:focus {
-  outline: 4px solid #ffb400 !important;
-  outline-offset: 2px;
+/* paginace – šedá tlačítka, okraje zarovnává skript na hrany mřížky */
+body.pt-favorites .pagination a,
+body.pt-search .pagination a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 1rem;
+  background: #333;
+  color: #fff !important;
+  border: 2px solid #777;
+  border-radius: 8px;
+  text-decoration: none;
 }
 
 body.pt-favorites .pt-switch {
   font-size: 1.1rem;
-  padding: 0.35rem 1.6rem;
+  padding: 0.35rem 1.2rem;
+  background: #333;
+  color: #fff;
   border: 2px solid #777;
-  border-radius: 999px;
-  color: inherit;
+  border-radius: 8px;
 }
 
 /* aktivní stránka – zvýrazněná, nejde fokusovat (je to span) */
@@ -390,11 +430,6 @@ body.pt-favorites .pt-switch--active {
   background: #ffb400;
   border-color: #ffb400;
   color: #000;
-}
-
-body.pt-favorites a.pt-switch:focus {
-  outline: 4px solid #ffb400 !important;
-  outline-offset: 2px;
 }
 
 /* ===== Mřížka videí (oblíbená i vyhledávání): 5 karet vedle sebe,
@@ -533,6 +568,15 @@ body.pt-video.pt-seeking .vjs-control-bar {
   opacity: 1 !important;
   visibility: visible !important;
   font-size: 1.3em;
+}
+
+/* vrstva s titulky (video.js) musí zůstat viditelná i se schovanou
+   ovládací lištou */
+body.pt-video .vjs-text-track-display {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 9002;
 }
 
 /* Titulek a hodnocení jako overlay – viditelné jen při pauze */
