@@ -180,34 +180,26 @@ a.video--link:focus {
   border-radius: 8px;
 }
 
-/* ===== Domovská stránka – jen vyhledávání + přihlásit ===== */
+/* ===== Domovská stránka – stejná hlavička jako na oblíbených ===== */
 body.pt-home .logo,
 body.pt-home .nav,
+body.pt-home .top-bar-left,
 body.pt-home main .section,
 body.pt-home #switch-theme-form,
 body.pt-home .header a[href="#registration"],
-body.pt-home .header a[href="/cenik"],
 body.pt-home .header a[href="/profil/nahrat-soubor"] {
   display: none !important;
 }
 
-body.pt-home .header {
-  position: fixed;
-  top: 32vh;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 55vw;
-  background: transparent !important;
-  box-shadow: none !important;
-  /* přihlášení vizuálně až pod vyhledáváním */
-  display: flex;
-  flex-direction: column-reverse;
+body.pt-home .grid-container {
+  max-width: none !important;
+  width: 100% !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
 }
 
 body.pt-home .top-bar {
-  display: block;
   background: transparent !important;
-  padding: 0;
 }
 
 body.pt-home .top-bar-right,
@@ -221,8 +213,6 @@ body.pt-home .form__group--search {
 }
 
 body.pt-home input.video-search-phrase {
-  font-size: 1.8rem !important;
-  height: 4rem !important;
   width: 100% !important;
 }
 
@@ -231,19 +221,8 @@ body.pt-home .header__section {
 }
 
 body.pt-home .header__links {
-  display: flex;
-  justify-content: center;
-  margin-top: 2rem;
+  justify-content: flex-end;
   background: transparent !important;
-}
-
-body.pt-home .header__section .grid-x {
-  justify-content: center !important;
-}
-
-body.pt-home .header__links a[href="#login"] {
-  font-size: 1.3rem;
-  padding: 0.5rem 1rem;
 }
 
 /* ===== Výsledky vyhledávání – vyhledávání + filtry + videa ===== */
@@ -341,7 +320,9 @@ body.pt-favorites .header__links {
 }
 
 body.pt-favorites .header__links li a,
-body.pt-favorites .header__links li button {
+body.pt-favorites .header__links li button,
+body.pt-home .header__links li a,
+body.pt-home .header__links li button {
   display: inline-flex;
   align-items: center;
   padding: 0.35rem 1.2rem;
@@ -414,6 +395,14 @@ body.pt-search .pagination a {
   border: 2px solid #777;
   border-radius: 8px;
   text-decoration: none;
+}
+
+/* aktuální stránka v paginaci – žlutá jako ostatní aktivní prvky */
+body.pt-favorites .pagination a.pagination-active,
+body.pt-search .pagination a.pagination-active {
+  background: #ffb400;
+  border-color: #ffb400;
+  color: #000 !important;
 }
 
 body.pt-favorites .pt-switch {

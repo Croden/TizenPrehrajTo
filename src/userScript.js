@@ -1050,6 +1050,9 @@
         alignPagination();
       }, 500);
     }
+    if (type === 'home') {
+      setInterval(alignPremiumToSearch, 500);
+    }
 
     // Vue komponenta vyhledávání se renderuje chvíli po DOMContentLoaded
     var tries = 0;
