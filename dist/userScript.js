@@ -361,6 +361,17 @@
       var t = (links[j].textContent || '').trim().toLowerCase();
       if (/prodlou/.test(t) && !/\d+\s*dn/.test(t)) links[j].style.display = 'none';
     }
+    // zůstal by prázdný box (ul má padding + background) – schovat celé ul,
+    // pokud v něm nezbyla žádná viditelná položka
+    var lists = document.querySelectorAll('.header__links');
+    for (var k = 0; k < lists.length; k++) {
+      var kids = lists[k].children;
+      var anyVisible = false;
+      for (var m = 0; m < kids.length; m++) {
+        if (kids[m].style.display !== 'none') { anyVisible = true; break; }
+      }
+      lists[k].style.display = anyVisible ? '' : 'none';
+    }
   }
 
   // ------------------------------------------------------------------
@@ -1094,7 +1105,10 @@
     var rowsIn = group.el.querySelectorAll('.pt-reco-row');
     var row = rowsIn[focusLast ? rowsIn.length - 1 : 0];
     var cardEl = row ? row.querySelector('.pt-reco-card') : null;
-    if (cardEl) focusEl(cardEl);
+    if (cardEl) {
+      focusEl(cardEl);
+      scrollWindowToCard(cardEl);
+    }
   }
 
   function loadRecoPage(state) {
@@ -1126,6 +1140,7 @@
           if (first && document.body.classList.contains('pt-reco') &&
               !document.getElementById('pt-reco-gate')) {
             focusEl(first);
+            scrollWindowToCard(first);
           }
         }
       })
@@ -1240,6 +1255,15 @@
     return null;
   }
 
+  // staré Tizen Chromium neumí spolehlivě scrollIntoView s options,
+  // proto vertikální posun okna počítáme ručně
+  function scrollWindowToCard(card) {
+    var r = card.getBoundingClientRect();
+    var wh = window.innerHeight || document.documentElement.clientHeight;
+    var delta = Math.round(r.top + r.height / 2 - wh / 2);
+    if (delta) window.scrollBy(0, delta);
+  }
+
   function scrollStripToCard(strip, card) {
     var sr = strip.getBoundingClientRect();
     var cr = card.getBoundingClientRect();
@@ -1282,6 +1306,7 @@
         // z úplně první řady nahoru zpět na přepínače
         var sw = recoSwitchEl();
         focusEl(sw || document.querySelector('input.video-search-phrase'));
+        window.scrollTo(0, 0);
       }
       return;
     }
@@ -1298,6 +1323,7 @@
     }
     focusEl(best);
     scrollStripToCard(strip, best);
+    scrollWindowToCard(best);
   }
 
   // ------------------------------------------------------------------
