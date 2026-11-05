@@ -607,3 +607,217 @@ body.pt-video:not(.pt-paused) .rate {
   opacity: 0;
   pointer-events: none;
 }
+
+/* ------------------------------------------------------------------ */
+/* Doporučení (TMDB)                                                   */
+/* ------------------------------------------------------------------ */
+#pt-reco {
+  display: none;
+}
+
+body.pt-reco #pt-reco {
+  display: block;
+  padding: 0.5rem 0 0 2.5rem;
+}
+
+/* backdrop fokusovaného filmu musí prosvítat skrz obal stránky
+   i hlavičku (vyhledávání + navigaci) až k hornímu okraji */
+body.pt-reco .content,
+body.pt-reco .header {
+  background: transparent !important;
+}
+
+#pt-reco-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+body.pt-reco #pt-reco-backdrop.pt-visible {
+  opacity: 0.3;
+}
+
+/* jednotlivé obrázky se prolínají jako vrstvy uvnitř kontejneru */
+.pt-reco-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.pt-reco-layer--on {
+  opacity: 1;
+}
+
+body.pt-reco .pt-fav-grid,
+body.pt-reco .pagination,
+body.pt-reco .pt-filter-group {
+  display: none !important;
+}
+
+#pt-reco-gate {
+  margin: 12vh auto 0;
+  text-align: center;
+}
+
+#pt-reco-gate p {
+  color: #fff;
+  font-size: 1.2rem;
+  margin: 0 0 1rem;
+}
+
+#pt-reco-gate input {
+  display: block;
+  width: 420px;
+  max-width: 90%;
+  margin: 0 auto 1rem;
+  padding: 0.6rem 1rem;
+  font-size: 1.1rem;
+  color: #fff;
+  background: #333;
+  border: 2px solid #777;
+  border-radius: 8px;
+}
+
+#pt-reco-gate button {
+  padding: 0.5rem 1.6rem;
+  font-size: 1.1rem;
+  color: #fff;
+  background: #333;
+  border: 2px solid #777;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pt-reco-err {
+  color: #ff6b6b;
+  min-height: 1.4rem;
+  margin: 0.8rem 0 0;
+}
+
+.pt-reco-group--hidden {
+  display: none;
+}
+
+/* zvýrazněná řada – červený box přes celou sekci; vpravo navazuje
+   na fade gradient, proto je zakulacený jen vlevo */
+.pt-reco-row--boxed {
+  background: rgba(190, 30, 30, 0.5);
+  border-radius: 8px 0 0 8px;
+  padding: 0.2rem 0.8rem 0.6rem;
+  margin-left: -0.8rem;
+}
+
+.pt-reco-row {
+  position: relative;
+  margin: 0 0 1.4rem;
+}
+
+/* fade na pravém okraji – postery "mizí" do pozadí */
+.pt-reco-row:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 160px;
+  background: linear-gradient(to right, rgba(26, 26, 26, 0), #1a1a1a);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pt-reco-row-title {
+  color: #fff;
+  font-size: 1.4rem;
+  margin: 0.8rem 0 0.5rem;
+}
+
+.pt-reco-strip {
+  display: flex;
+  overflow: hidden;
+  padding: 8px 4px;
+}
+
+a.pt-reco-card {
+  position: relative;
+  flex: none;
+  width: 220px;
+  margin-right: 0.8rem;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+/* hodnocení v rohu posteru – jen u vybrané karty */
+.pt-reco-rating {
+  display: none;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffb400;
+  font-size: 0.9rem;
+  border-radius: 6px;
+}
+
+a.pt-reco-card:focus .pt-reco-rating,
+a.pt-reco-card:hover .pt-reco-rating {
+  display: block;
+}
+
+a.pt-reco-card img {
+  display: block;
+  width: 220px;
+  height: 330px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #333;
+}
+
+.pt-reco-title {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pt-reco-year {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.85rem;
+  color: #9a9a9a;
+  text-align: center;
+}
+
+a.pt-reco-card:focus,
+#pt-reco-gate input:focus,
+#pt-reco-gate button:focus {
+  outline: 4px solid #ffb400 !important;
+  outline-offset: 2px;
+}
+
+/* plné pozadí pod vybranou kartou, ať je text čitelný i přes backdrop */
+a.pt-reco-card:focus {
+  background: #1a1a1a;
+}
+
+/* nadpis výsledků hledání – stejné proporce jako nadpis kategorie */
+body.pt-search main h1.title {
+  font-size: 1.4rem !important;
+  margin: 0.8rem 0 0.5rem 2.5rem;
+}

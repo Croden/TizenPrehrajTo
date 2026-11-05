@@ -12,7 +12,11 @@
   if (window.__TIZENPREHRAJTO__) return;
   window.__TIZENPREHRAJTO__ = true;
 
-  var CUSTOM_CSS = "/*\n * Funkční styly aplikace TizenPrehrajTo (režimy stránek, fokus, fullscreen player).\n * Vlastní vizuální úpravy patří do userStyles.css, ne sem.\n *\n * Jednotná paleta ovládacích prvků (CSS proměnné nejsou kvůli starším\n * Tizenům – hodnoty držet synchronní ručně):\n *   pozadí tlačítek  #333\n *   rámeček          2px solid #777\n *   text             #fff\n *   akcent (aktivní) #ffb400, text na akcentu #000\n *   border-radius    8px\n *   fokus/hover      outline 4px solid #ffb400, offset 2px\n */\n\n/* ===== Globální ===== */\n/* stránka se ukáže až po aplikaci TV úprav (žádné probliknutí původního webu) */\nbody:not(.pt-ready) {\n  visibility: hidden !important;\n}\n\n/* srdíčko „přidat do oblíbených“ – skript ho přesouvá z thumbnailu do\n   řádku štítků pod ním (úplně vpravo); background/radius kopíruje ze\n   štítku s délkou videa */\nbody.pt-search .video__header .video-favorite,\nbody.pt-favorites .video__header .video-favorite {\n  position: static !important;\n  margin: 0.3rem 0 0 0.5rem !important;\n  justify-content: center;\n}\n\nbody.pt-search .video__header .video-favorite a,\nbody.pt-favorites .video__header .video-favorite a,\nbody.pt-search .video__header .video-favorite button,\nbody.pt-favorites .video__header .video-favorite button {\n  background: transparent !important;\n  border: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  color: inherit !important;\n  font-size: inherit !important;\n  line-height: 1;\n  display: inline-flex;\n  align-items: center;\n}\n\n/* všechny štítky pod thumbnailem (délka, lajky, velikost i srdíčko)\n   mají stejnou výšku */\nbody.pt-search .video__header .video__tag,\nbody.pt-favorites .video__header .video__tag,\nbody.pt-search .video__header .video-favorite,\nbody.pt-favorites .video__header .video-favorite {\n  height: 2.2rem;\n  box-sizing: border-box;\n  display: inline-flex !important;\n  align-items: center;\n}\n\n/* štítky uvnitř skupiny vpravo nesmí dědit horní odsazení řádku */\nbody.pt-search .video__header .video__tag--others .video__tag,\nbody.pt-favorites .video__header .video__tag--others .video__tag {\n  margin-top: 0 !important;\n}\n\n/* srdíčko „přidat do oblíbených“ – fokus šipkou dolů z videa */\nbody.pt-search .video-favorite:focus,\nbody.pt-favorites .video-favorite:focus,\nbody.pt-search .video-favorite :focus,\nbody.pt-favorites .video-favorite :focus {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 2px;\n  border-radius: 4px;\n}\n\n/* dialog výběru seznamů po kliknutí na srdíčko vyřizuje skript sám\n   (odklikne checkbox) – nemá ani probliknout; visibility (ne display)\n   kvůli zachování layoutu pro detekci checkboxů */\nbody.pt-fav-auto .reveal-overlay,\nbody.pt-fav-auto .reveal,\nbody.pt-fav-auto .dialog,\nbody.pt-fav-auto .modal,\nbody.pt-fav-auto [class*=\"popup\"],\nbody.pt-fav-auto [class*=\"tooltip\"] {\n  visibility: hidden !important;\n}\n\n/* jednou obsloužený dialog/popover zůstává neviditelný napořád –\n   visibility (ne display), aby mu zůstal layout pro příští detekci */\n.pt-fav-dialog {\n  visibility: hidden !important;\n}\n\n/* OSD hláška (přepínání zvuku/titulků) */\n#pt-osd {\n  position: fixed;\n  left: 50%;\n  bottom: 8vh;\n  transform: translateX(-50%);\n  z-index: 9500;\n  background: rgba(0, 0, 0, 0.75);\n  color: #fff;\n  font-size: 1.4rem;\n  padding: 0.6rem 1.4rem;\n  border-radius: 8px;\n  opacity: 0;\n  pointer-events: none;\n  transition: opacity 0.2s;\n}\n\n#pt-osd.pt-osd--visible {\n  opacity: 1;\n}\n\n/* vlastní našeptávač (#pt-suggest) – kopie nabídky webu s reálně\n   fokusovatelnými položkami; fokus musí z inputu odejít, jinak OK\n   na TV jen znovu otevře klávesnici */\n#pt-suggest {\n  position: fixed;\n  z-index: 9600;\n  background: #333;\n  border: 2px solid #777;\n  border-radius: 8px;\n  max-height: 60vh;\n  overflow: auto;\n  padding: 0.3rem 0;\n}\n\n/* nativní dropdown webu je po dobu otevřeného overlaye schovaný,\n   aby pod ním neprosvítal (třídu přidává/odebírá skript) */\n.pt-native-suggest-hidden {\n  visibility: hidden !important;\n}\n\n.pt-suggest-item {\n  display: block;\n  padding: 0.5rem 1rem;\n  color: #fff;\n  font-size: 1.2rem;\n  text-decoration: none;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n\n.pt-suggest-item:focus {\n  outline: none;\n  background: #ffb400;\n  color: #000;\n}\n\n#feedback,\n.popup,\n.nav--mobile,\n.button--menu,\nfooter.footer {\n  display: none !important;\n}\n\n/* jednotný fokus/hover pro všechny ovládací prvky */\ninput.video-search-phrase:focus,\n.header__links a:focus,\n.button--filters:focus,\n.button--filters:hover,\n.filters-group__item:focus,\n.dialog a:focus,\n.dialog button:focus,\n.dialog input:focus,\n.pagination a:focus,\n.pagination a:hover,\na.pt-switch:focus,\na.pt-switch:hover,\n.pt-filter:focus,\n.pt-filter:hover {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 2px;\n}\n\na.video--link:focus {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 2px;\n  border-radius: 8px;\n}\n\n/* ===== Domovská stránka – stejná hlavička jako na oblíbených ===== */\nbody.pt-home .logo,\nbody.pt-home .nav,\nbody.pt-home .top-bar-left,\nbody.pt-home main .section,\nbody.pt-home #switch-theme-form,\nbody.pt-home .header a[href=\"#registration\"],\nbody.pt-home .header a[href=\"/profil/nahrat-soubor\"] {\n  display: none !important;\n}\n\nbody.pt-home .grid-container {\n  max-width: none !important;\n  width: 100% !important;\n  padding-left: 1.5rem !important;\n  padding-right: 1.5rem !important;\n}\n\nbody.pt-home .top-bar {\n  background: transparent !important;\n}\n\nbody.pt-home .top-bar-right,\nbody.pt-home .suggest-wrapper,\nbody.pt-home .suggest,\nbody.pt-home .form-search,\nbody.pt-home .form__group--search {\n  width: 100% !important;\n  max-width: none !important;\n  float: none !important;\n}\n\nbody.pt-home input.video-search-phrase {\n  width: 100% !important;\n}\n\nbody.pt-home .header__section {\n  display: block !important;\n}\n\nbody.pt-home .header__links {\n  justify-content: flex-end;\n  background: transparent !important;\n}\n\n/* ===== Výsledky vyhledávání – vyhledávání + filtry + videa ===== */\nbody.pt-search .logo,\nbody.pt-search .nav,\nbody.pt-search #switch-theme-form,\nbody.pt-search .header__section.show-for-large,\nbody.pt-search main > .grid-x:not(:last-child) h1 {\n  display: none !important;\n}\n\n/* obsah přes celou šířku obrazovky (web omezuje .page na 1184 px) */\nbody.pt-search .page,\nbody.pt-favorites .page {\n  max-width: none !important;\n  width: 100% !important;\n  margin: 0 !important;\n}\n\nbody.pt-search .grid-container {\n  max-width: none !important;\n  width: 100% !important;\n  padding-left: 1.5rem !important;\n  padding-right: 1.5rem !important;\n}\n\n/* vyhledávání přes celou šířku (logo je schované) */\nbody.pt-search .top-bar-left {\n  display: none !important;\n}\n\nbody.pt-search .top-bar-right,\nbody.pt-search .suggest-wrapper,\nbody.pt-search .suggest,\nbody.pt-search .form-search,\nbody.pt-search .form__group--search {\n  width: 100% !important;\n  max-width: none !important;\n  float: none !important;\n}\n\nbody.pt-search input.video-search-phrase {\n  width: 100% !important;\n}\n\n/* tlačítko filtrů ve výsledcích – stejné žluté zvýraznění jako\n   aktivní přepínač/filtr na oblíbených */\nbody.pt-search .button--filters {\n  background: #ffb400 !important;\n  border: 2px solid #ffb400 !important;\n  border-radius: 8px;\n  color: #000 !important;\n}\n\nbody.pt-search .button--filters:focus {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 3px;\n}\n\n/* ===== Oblíbená videa (výchozí stránka) – search + premium + videa ===== */\nbody.pt-favorites .logo,\nbody.pt-favorites .nav,\nbody.pt-favorites .top-bar-left,\nbody.pt-favorites #switch-theme-form,\nbody.pt-favorites .section__header,\nbody.pt-favorites .breadcrumbs {\n  display: none !important;\n}\n\nbody.pt-favorites .grid-container {\n  max-width: none !important;\n  width: 100% !important;\n  padding-left: 1.5rem !important;\n  padding-right: 1.5rem !important;\n}\n\nbody.pt-favorites .top-bar-right,\nbody.pt-favorites .suggest-wrapper,\nbody.pt-favorites .suggest,\nbody.pt-favorites .form-search,\nbody.pt-favorites .form__group--search {\n  width: 100% !important;\n  max-width: none !important;\n  float: none !important;\n}\n\nbody.pt-favorites input.video-search-phrase {\n  width: 100% !important;\n}\n\n/* premium info v liště – stejný šedý box jako ostatní prvky,\n   pravou hranou zarovnaný na search (dorovnává skript) */\nbody.pt-favorites .header__links {\n  justify-content: flex-end;\n}\n\nbody.pt-favorites .header__links li a,\nbody.pt-favorites .header__links li button,\nbody.pt-home .header__links li a,\nbody.pt-home .header__links li button {\n  display: inline-flex;\n  align-items: center;\n  padding: 0.35rem 1.2rem;\n  background: #333;\n  color: #fff !important;\n  border: 2px solid #777;\n  border-radius: 8px;\n  text-decoration: none;\n}\n\n/* přepínač Oblíbená videa / Právě sledovaná pod vyhledáváním\n   (stejná mezera nad i pod – dole přičti 0.5rem margin karty videa,\n   obsah stránky nemá vlastní horní odsazení) */\nbody.pt-favorites .pt-switch-row {\n  position: relative;\n  display: flex;\n  justify-content: center;\n  gap: 1rem;\n  margin: 1rem 0 0.5rem;\n}\n\n/* filtry doby (\"24 hodin\", \"7 dní\", \"14 dní\") přesunuté z právě\n   sledovaných – vpravo na úrovni přepínače, vzhled jako tlačítka */\nbody.pt-favorites .pt-filter-group {\n  position: absolute;\n  right: 1.5rem;\n  top: 50%;\n  transform: translateY(-50%);\n  display: flex;\n  gap: 0.8rem;\n  align-items: center;\n}\n\nbody.pt-favorites .pt-filter-group .pt-filter {\n  display: inline-flex;\n  align-items: center;\n  font-size: 1.1rem;\n  line-height: 1.2;\n  padding: 0.35rem 1.2rem;\n  background: #333;\n  color: #fff !important;\n  border: 2px solid #777;\n  border-radius: 8px;\n  text-decoration: none;\n  cursor: pointer;\n}\n\n/* aktivní filtr – značí ho skript podle třídy od webu nebo shody URL */\nbody.pt-favorites .pt-filter-group .pt-filter--active {\n  background: #ffb400;\n  border-color: #ffb400;\n  color: #000 !important;\n}\n\nbody.pt-favorites main,\nbody.pt-favorites main .section {\n  padding-top: 0 !important;\n  margin-top: 0 !important;\n}\n\n/* paginace – šedá tlačítka, okraje zarovnává skript na hrany mřížky */\nbody.pt-favorites .pagination a,\nbody.pt-search .pagination a {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  padding: 0.35rem 1rem;\n  background: #333;\n  color: #fff !important;\n  border: 2px solid #777;\n  border-radius: 8px;\n  text-decoration: none;\n}\n\n/* aktuální stránka v paginaci – žlutá jako ostatní aktivní prvky */\nbody.pt-favorites .pagination a.pagination-active,\nbody.pt-search .pagination a.pagination-active {\n  background: #ffb400;\n  border-color: #ffb400;\n  color: #000 !important;\n}\n\nbody.pt-favorites .pt-switch {\n  font-size: 1.1rem;\n  padding: 0.35rem 1.2rem;\n  background: #333;\n  color: #fff;\n  border: 2px solid #777;\n  border-radius: 8px;\n}\n\n/* aktivní stránka – zvýrazněná, nejde fokusovat (je to span) */\nbody.pt-favorites .pt-switch--active {\n  background: #ffb400;\n  border-color: #ffb400;\n  color: #000;\n}\n\n/* ===== Mřížka videí (oblíbená i vyhledávání): 5 karet vedle sebe,\n   zarovnané doleva; .pt-fav-grid přidává na oblíbených skript ===== */\nbody.pt-favorites .pt-fav-grid,\nbody.pt-search .video-listing {\n  display: flex !important;\n  flex-wrap: wrap;\n  justify-content: flex-start;\n  width: 100% !important;\n  max-width: none !important;\n}\n\nbody.pt-favorites .pt-fav-grid > *,\nbody.pt-search .video-listing > .video-wrapper {\n  flex: 0 0 auto;\n  width: calc(100% / 5 - 1rem) !important;\n  max-width: none !important;\n  margin: 0.5rem !important;\n}\n\nbody.pt-favorites .video-wrapper .video,\nbody.pt-search .video-wrapper .video,\nbody.pt-favorites .video__picture--container,\nbody.pt-search .video__picture--container,\nbody.pt-favorites .video__title,\nbody.pt-search .video__title {\n  width: 100% !important;\n  max-width: 100% !important;\n}\n\n/* karta: do thumbnailu nic nezasahuje – pod ním délka vlevo,\n   HD/lajky/velikost vpravo, pak teprve název */\nbody.pt-favorites .video__header,\nbody.pt-search .video__header {\n  display: flex !important;\n  flex-wrap: wrap;\n  align-items: center;\n}\n\nbody.pt-favorites .video__header .video__picture,\nbody.pt-search .video__header .video__picture {\n  width: 100% !important;\n}\n\nbody.pt-favorites .video__header img.thumb,\nbody.pt-search .video__header img.thumb {\n  width: 100% !important;\n  height: auto !important;\n}\n\nbody.pt-favorites .video__header .video__tag,\nbody.pt-search .video__header .video__tag,\nbody.pt-favorites .video__header .video__tag--others,\nbody.pt-search .video__header .video__tag--others {\n  position: static !important;\n  margin: 0.3rem 0 0 !important;\n}\n\nbody.pt-favorites .video__header .video__tag--time,\nbody.pt-search .video__header .video__tag--time {\n  margin-right: auto !important;\n}\n\nbody.pt-favorites .video__header .video__tag--others,\nbody.pt-search .video__header .video__tag--others {\n  display: flex !important;\n  align-items: center;\n}\n\nbody.pt-favorites .video__header .video__tag--size,\nbody.pt-search .video__header .video__tag--size {\n  margin-left: 0.5rem !important;\n}\n\n/* ikonka kvality (HD) je zbytečná (selektor s .video__header musí\n   přebít display:inline-flex štítků výše) */\nbody.pt-favorites .video__tag--format,\nbody.pt-search .video__tag--format,\nbody.pt-favorites .video__header .video__tag--format,\nbody.pt-search .video__header .video__tag--format {\n  display: none !important;\n}\n\n/* ikona play překrývala thumbnail */\nbody.pt-favorites .video__play,\nbody.pt-search .video__play {\n  display: none !important;\n}\n\n/* ===== Video stránka – fullscreen player + titulek + hodnocení ===== */\nbody.pt-video {\n  overflow: hidden !important;\n}\n\nbody.pt-video #video-player-row {\n  position: fixed;\n  inset: 0;\n  margin: 0 !important;\n  z-index: 9000;\n  background: #000;\n}\n\nbody.pt-video #video-player-row .cell,\nbody.pt-video .video--detail,\nbody.pt-video #video-wrap {\n  width: 100vw !important;\n  height: 100vh !important;\n  max-width: none !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\nbody.pt-video #content_video {\n  width: 100vw !important;\n  height: 100vh !important;\n  padding-top: 0 !important;\n}\n\nbody.pt-video #content_video video {\n  object-fit: contain;\n  width: 100%;\n  height: 100%;\n}\n\n/* Ovládací lišta video.js: při přehrávání schovaná (zbytečně se\n   překresluje), ukáže se při pauze a krátce při přetáčení šipkami */\nbody.pt-video .vjs-control-bar,\nbody.pt-video .vjs-big-play-button {\n  display: none !important;\n}\n\nbody.pt-video.pt-paused .vjs-control-bar,\nbody.pt-video.pt-seeking .vjs-control-bar {\n  display: flex !important;\n  opacity: 1 !important;\n  visibility: visible !important;\n  font-size: 1.3em;\n}\n\n/* vrstva s titulky (video.js) musí zůstat viditelná i se schovanou\n   ovládací lištou */\nbody.pt-video .vjs-text-track-display {\n  display: block !important;\n  visibility: visible !important;\n  opacity: 1 !important;\n  z-index: 9002;\n}\n\n/* Titulek a hodnocení jako overlay – viditelné jen při pauze */\nbody.pt-video h1.title {\n  position: fixed;\n  top: 2vh;\n  left: 2vw;\n  max-width: 70vw;\n  z-index: 9001;\n  color: #fff !important;\n  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);\n  transition: opacity 0.3s;\n  margin: 0;\n}\n\nbody.pt-video h1.title span {\n  color: #fff !important;\n}\n\nbody.pt-video .rate {\n  position: fixed;\n  top: 2vh;\n  right: 2vw;\n  z-index: 9001;\n  color: #fff !important;\n  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);\n  transition: opacity 0.3s;\n  background: rgba(0, 0, 0, 0.5);\n  padding: 0.4rem 0.8rem;\n  border-radius: 6px;\n}\n\nbody.pt-video .rate span {\n  color: #fff !important;\n}\n\nbody.pt-video:not(.pt-paused) h1.title,\nbody.pt-video:not(.pt-paused) .rate {\n  opacity: 0;\n  pointer-events: none;\n}\n";
+  var CUSTOM_CSS = "/*\n * Funkční styly aplikace TizenPrehrajTo (režimy stránek, fokus, fullscreen player).\n * Vlastní vizuální úpravy patří do userStyles.css, ne sem.\n *\n * Jednotná paleta ovládacích prvků (CSS proměnné nejsou kvůli starším\n * Tizenům – hodnoty držet synchronní ručně):\n *   pozadí tlačítek  #333\n *   rámeček          2px solid #777\n *   text             #fff\n *   akcent (aktivní) #ffb400, text na akcentu #000\n *   border-radius    8px\n *   fokus/hover      outline 4px solid #ffb400, offset 2px\n */\n\n/* ===== Globální ===== */\n/* stránka se ukáže až po aplikaci TV úprav (žádné probliknutí původního webu) */\nbody:not(.pt-ready) {\n  visibility: hidden !important;\n}\n\n/* srdíčko „přidat do oblíbených“ – skript ho přesouvá z thumbnailu do\n   řádku štítků pod ním (úplně vpravo); background/radius kopíruje ze\n   štítku s délkou videa */\nbody.pt-search .video__header .video-favorite,\nbody.pt-favorites .video__header .video-favorite {\n  position: static !important;\n  margin: 0.3rem 0 0 0.5rem !important;\n  justify-content: center;\n}\n\nbody.pt-search .video__header .video-favorite a,\nbody.pt-favorites .video__header .video-favorite a,\nbody.pt-search .video__header .video-favorite button,\nbody.pt-favorites .video__header .video-favorite button {\n  background: transparent !important;\n  border: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  color: inherit !important;\n  font-size: inherit !important;\n  line-height: 1;\n  display: inline-flex;\n  align-items: center;\n}\n\n/* všechny štítky pod thumbnailem (délka, lajky, velikost i srdíčko)\n   mají stejnou výšku */\nbody.pt-search .video__header .video__tag,\nbody.pt-favorites .video__header .video__tag,\nbody.pt-search .video__header .video-favorite,\nbody.pt-favorites .video__header .video-favorite {\n  height: 2.2rem;\n  box-sizing: border-box;\n  display: inline-flex !important;\n  align-items: center;\n}\n\n/* štítky uvnitř skupiny vpravo nesmí dědit horní odsazení řádku */\nbody.pt-search .video__header .video__tag--others .video__tag,\nbody.pt-favorites .video__header .video__tag--others .video__tag {\n  margin-top: 0 !important;\n}\n\n/* srdíčko „přidat do oblíbených“ – fokus šipkou dolů z videa */\nbody.pt-search .video-favorite:focus,\nbody.pt-favorites .video-favorite:focus,\nbody.pt-search .video-favorite :focus,\nbody.pt-favorites .video-favorite :focus {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 2px;\n  border-radius: 4px;\n}\n\n/* dialog výběru seznamů po kliknutí na srdíčko vyřizuje skript sám\n   (odklikne checkbox) – nemá ani probliknout; visibility (ne display)\n   kvůli zachování layoutu pro detekci checkboxů */\nbody.pt-fav-auto .reveal-overlay,\nbody.pt-fav-auto .reveal,\nbody.pt-fav-auto .dialog,\nbody.pt-fav-auto .modal,\nbody.pt-fav-auto [class*=\"popup\"],\nbody.pt-fav-auto [class*=\"tooltip\"] {\n  visibility: hidden !important;\n}\n\n/* jednou obsloužený dialog/popover zůstává neviditelný napořád –\n   visibility (ne display), aby mu zůstal layout pro příští detekci */\n.pt-fav-dialog {\n  visibility: hidden !important;\n}\n\n/* OSD hláška (přepínání zvuku/titulků) */\n#pt-osd {\n  position: fixed;\n  left: 50%;\n  bottom: 8vh;\n  transform: translateX(-50%);\n  z-index: 9500;\n  background: rgba(0, 0, 0, 0.75);\n  color: #fff;\n  font-size: 1.4rem;\n  padding: 0.6rem 1.4rem;\n  border-radius: 8px;\n  opacity: 0;\n  pointer-events: none;\n  transition: opacity 0.2s;\n}\n\n#pt-osd.pt-osd--visible {\n  opacity: 1;\n}\n\n/* vlastní našeptávač (#pt-suggest) – kopie nabídky webu s reálně\n   fokusovatelnými položkami; fokus musí z inputu odejít, jinak OK\n   na TV jen znovu otevře klávesnici */\n#pt-suggest {\n  position: fixed;\n  z-index: 9600;\n  background: #333;\n  border: 2px solid #777;\n  border-radius: 8px;\n  max-height: 60vh;\n  overflow: auto;\n  padding: 0.3rem 0;\n}\n\n/* nativní dropdown webu je po dobu otevřeného overlaye schovaný,\n   aby pod ním neprosvítal (třídu přidává/odebírá skript) */\n.pt-native-suggest-hidden {\n  visibility: hidden !important;\n}\n\n.pt-suggest-item {\n  display: block;\n  padding: 0.5rem 1rem;\n  color: #fff;\n  font-size: 1.2rem;\n  text-decoration: none;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n\n.pt-suggest-item:focus {\n  outline: none;\n  background: #ffb400;\n  color: #000;\n}\n\n#feedback,\n.popup,\n.nav--mobile,\n.button--menu,\nfooter.footer {\n  display: none !important;\n}\n\n/* jednotný fokus/hover pro všechny ovládací prvky */\ninput.video-search-phrase:focus,\n.header__links a:focus,\n.button--filters:focus,\n.button--filters:hover,\n.filters-group__item:focus,\n.dialog a:focus,\n.dialog button:focus,\n.dialog input:focus,\n.pagination a:focus,\n.pagination a:hover,\na.pt-switch:focus,\na.pt-switch:hover,\n.pt-filter:focus,\n.pt-filter:hover {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 2px;\n}\n\na.video--link:focus {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 2px;\n  border-radius: 8px;\n}\n\n/* ===== Domovská stránka – stejná hlavička jako na oblíbených ===== */\nbody.pt-home .logo,\nbody.pt-home .nav,\nbody.pt-home .top-bar-left,\nbody.pt-home main .section,\nbody.pt-home #switch-theme-form,\nbody.pt-home .header a[href=\"#registration\"],\nbody.pt-home .header a[href=\"/profil/nahrat-soubor\"] {\n  display: none !important;\n}\n\nbody.pt-home .grid-container {\n  max-width: none !important;\n  width: 100% !important;\n  padding-left: 1.5rem !important;\n  padding-right: 1.5rem !important;\n}\n\nbody.pt-home .top-bar {\n  background: transparent !important;\n}\n\nbody.pt-home .top-bar-right,\nbody.pt-home .suggest-wrapper,\nbody.pt-home .suggest,\nbody.pt-home .form-search,\nbody.pt-home .form__group--search {\n  width: 100% !important;\n  max-width: none !important;\n  float: none !important;\n}\n\nbody.pt-home input.video-search-phrase {\n  width: 100% !important;\n}\n\nbody.pt-home .header__section {\n  display: block !important;\n}\n\nbody.pt-home .header__links {\n  justify-content: flex-end;\n  background: transparent !important;\n}\n\n/* ===== Výsledky vyhledávání – vyhledávání + filtry + videa ===== */\nbody.pt-search .logo,\nbody.pt-search .nav,\nbody.pt-search #switch-theme-form,\nbody.pt-search .header__section.show-for-large,\nbody.pt-search main > .grid-x:not(:last-child) h1 {\n  display: none !important;\n}\n\n/* obsah přes celou šířku obrazovky (web omezuje .page na 1184 px) */\nbody.pt-search .page,\nbody.pt-favorites .page {\n  max-width: none !important;\n  width: 100% !important;\n  margin: 0 !important;\n}\n\nbody.pt-search .grid-container {\n  max-width: none !important;\n  width: 100% !important;\n  padding-left: 1.5rem !important;\n  padding-right: 1.5rem !important;\n}\n\n/* vyhledávání přes celou šířku (logo je schované) */\nbody.pt-search .top-bar-left {\n  display: none !important;\n}\n\nbody.pt-search .top-bar-right,\nbody.pt-search .suggest-wrapper,\nbody.pt-search .suggest,\nbody.pt-search .form-search,\nbody.pt-search .form__group--search {\n  width: 100% !important;\n  max-width: none !important;\n  float: none !important;\n}\n\nbody.pt-search input.video-search-phrase {\n  width: 100% !important;\n}\n\n/* tlačítko filtrů ve výsledcích – stejné žluté zvýraznění jako\n   aktivní přepínač/filtr na oblíbených */\nbody.pt-search .button--filters {\n  background: #ffb400 !important;\n  border: 2px solid #ffb400 !important;\n  border-radius: 8px;\n  color: #000 !important;\n}\n\nbody.pt-search .button--filters:focus {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 3px;\n}\n\n/* ===== Oblíbená videa (výchozí stránka) – search + premium + videa ===== */\nbody.pt-favorites .logo,\nbody.pt-favorites .nav,\nbody.pt-favorites .top-bar-left,\nbody.pt-favorites #switch-theme-form,\nbody.pt-favorites .section__header,\nbody.pt-favorites .breadcrumbs {\n  display: none !important;\n}\n\nbody.pt-favorites .grid-container {\n  max-width: none !important;\n  width: 100% !important;\n  padding-left: 1.5rem !important;\n  padding-right: 1.5rem !important;\n}\n\nbody.pt-favorites .top-bar-right,\nbody.pt-favorites .suggest-wrapper,\nbody.pt-favorites .suggest,\nbody.pt-favorites .form-search,\nbody.pt-favorites .form__group--search {\n  width: 100% !important;\n  max-width: none !important;\n  float: none !important;\n}\n\nbody.pt-favorites input.video-search-phrase {\n  width: 100% !important;\n}\n\n/* premium info v liště – stejný šedý box jako ostatní prvky,\n   pravou hranou zarovnaný na search (dorovnává skript) */\nbody.pt-favorites .header__links {\n  justify-content: flex-end;\n}\n\nbody.pt-favorites .header__links li a,\nbody.pt-favorites .header__links li button,\nbody.pt-home .header__links li a,\nbody.pt-home .header__links li button {\n  display: inline-flex;\n  align-items: center;\n  padding: 0.35rem 1.2rem;\n  background: #333;\n  color: #fff !important;\n  border: 2px solid #777;\n  border-radius: 8px;\n  text-decoration: none;\n}\n\n/* přepínač Oblíbená videa / Právě sledovaná pod vyhledáváním\n   (stejná mezera nad i pod – dole přičti 0.5rem margin karty videa,\n   obsah stránky nemá vlastní horní odsazení) */\nbody.pt-favorites .pt-switch-row {\n  position: relative;\n  display: flex;\n  justify-content: center;\n  gap: 1rem;\n  margin: 1rem 0 0.5rem;\n}\n\n/* filtry doby (\"24 hodin\", \"7 dní\", \"14 dní\") přesunuté z právě\n   sledovaných – vpravo na úrovni přepínače, vzhled jako tlačítka */\nbody.pt-favorites .pt-filter-group {\n  position: absolute;\n  right: 1.5rem;\n  top: 50%;\n  transform: translateY(-50%);\n  display: flex;\n  gap: 0.8rem;\n  align-items: center;\n}\n\nbody.pt-favorites .pt-filter-group .pt-filter {\n  display: inline-flex;\n  align-items: center;\n  font-size: 1.1rem;\n  line-height: 1.2;\n  padding: 0.35rem 1.2rem;\n  background: #333;\n  color: #fff !important;\n  border: 2px solid #777;\n  border-radius: 8px;\n  text-decoration: none;\n  cursor: pointer;\n}\n\n/* aktivní filtr – značí ho skript podle třídy od webu nebo shody URL */\nbody.pt-favorites .pt-filter-group .pt-filter--active {\n  background: #ffb400;\n  border-color: #ffb400;\n  color: #000 !important;\n}\n\nbody.pt-favorites main,\nbody.pt-favorites main .section {\n  padding-top: 0 !important;\n  margin-top: 0 !important;\n}\n\n/* paginace – šedá tlačítka, okraje zarovnává skript na hrany mřížky */\nbody.pt-favorites .pagination a,\nbody.pt-search .pagination a {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  padding: 0.35rem 1rem;\n  background: #333;\n  color: #fff !important;\n  border: 2px solid #777;\n  border-radius: 8px;\n  text-decoration: none;\n}\n\n/* aktuální stránka v paginaci – žlutá jako ostatní aktivní prvky */\nbody.pt-favorites .pagination a.pagination-active,\nbody.pt-search .pagination a.pagination-active {\n  background: #ffb400;\n  border-color: #ffb400;\n  color: #000 !important;\n}\n\nbody.pt-favorites .pt-switch {\n  font-size: 1.1rem;\n  padding: 0.35rem 1.2rem;\n  background: #333;\n  color: #fff;\n  border: 2px solid #777;\n  border-radius: 8px;\n}\n\n/* aktivní stránka – zvýrazněná, nejde fokusovat (je to span) */\nbody.pt-favorites .pt-switch--active {\n  background: #ffb400;\n  border-color: #ffb400;\n  color: #000;\n}\n\n/* ===== Mřížka videí (oblíbená i vyhledávání): 5 karet vedle sebe,\n   zarovnané doleva; .pt-fav-grid přidává na oblíbených skript ===== */\nbody.pt-favorites .pt-fav-grid,\nbody.pt-search .video-listing {\n  display: flex !important;\n  flex-wrap: wrap;\n  justify-content: flex-start;\n  width: 100% !important;\n  max-width: none !important;\n}\n\nbody.pt-favorites .pt-fav-grid > *,\nbody.pt-search .video-listing > .video-wrapper {\n  flex: 0 0 auto;\n  width: calc(100% / 5 - 1rem) !important;\n  max-width: none !important;\n  margin: 0.5rem !important;\n}\n\nbody.pt-favorites .video-wrapper .video,\nbody.pt-search .video-wrapper .video,\nbody.pt-favorites .video__picture--container,\nbody.pt-search .video__picture--container,\nbody.pt-favorites .video__title,\nbody.pt-search .video__title {\n  width: 100% !important;\n  max-width: 100% !important;\n}\n\n/* karta: do thumbnailu nic nezasahuje – pod ním délka vlevo,\n   HD/lajky/velikost vpravo, pak teprve název */\nbody.pt-favorites .video__header,\nbody.pt-search .video__header {\n  display: flex !important;\n  flex-wrap: wrap;\n  align-items: center;\n}\n\nbody.pt-favorites .video__header .video__picture,\nbody.pt-search .video__header .video__picture {\n  width: 100% !important;\n}\n\nbody.pt-favorites .video__header img.thumb,\nbody.pt-search .video__header img.thumb {\n  width: 100% !important;\n  height: auto !important;\n}\n\nbody.pt-favorites .video__header .video__tag,\nbody.pt-search .video__header .video__tag,\nbody.pt-favorites .video__header .video__tag--others,\nbody.pt-search .video__header .video__tag--others {\n  position: static !important;\n  margin: 0.3rem 0 0 !important;\n}\n\nbody.pt-favorites .video__header .video__tag--time,\nbody.pt-search .video__header .video__tag--time {\n  margin-right: auto !important;\n}\n\nbody.pt-favorites .video__header .video__tag--others,\nbody.pt-search .video__header .video__tag--others {\n  display: flex !important;\n  align-items: center;\n}\n\nbody.pt-favorites .video__header .video__tag--size,\nbody.pt-search .video__header .video__tag--size {\n  margin-left: 0.5rem !important;\n}\n\n/* ikonka kvality (HD) je zbytečná (selektor s .video__header musí\n   přebít display:inline-flex štítků výše) */\nbody.pt-favorites .video__tag--format,\nbody.pt-search .video__tag--format,\nbody.pt-favorites .video__header .video__tag--format,\nbody.pt-search .video__header .video__tag--format {\n  display: none !important;\n}\n\n/* ikona play překrývala thumbnail */\nbody.pt-favorites .video__play,\nbody.pt-search .video__play {\n  display: none !important;\n}\n\n/* ===== Video stránka – fullscreen player + titulek + hodnocení ===== */\nbody.pt-video {\n  overflow: hidden !important;\n}\n\nbody.pt-video #video-player-row {\n  position: fixed;\n  inset: 0;\n  margin: 0 !important;\n  z-index: 9000;\n  background: #000;\n}\n\nbody.pt-video #video-player-row .cell,\nbody.pt-video .video--detail,\nbody.pt-video #video-wrap {\n  width: 100vw !important;\n  height: 100vh !important;\n  max-width: none !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\nbody.pt-video #content_video {\n  width: 100vw !important;\n  height: 100vh !important;\n  padding-top: 0 !important;\n}\n\nbody.pt-video #content_video video {\n  object-fit: contain;\n  width: 100%;\n  height: 100%;\n}\n\n/* Ovládací lišta video.js: při přehrávání schovaná (zbytečně se\n   překresluje), ukáže se při pauze a krátce při přetáčení šipkami */\nbody.pt-video .vjs-control-bar,\nbody.pt-video .vjs-big-play-button {\n  display: none !important;\n}\n\nbody.pt-video.pt-paused .vjs-control-bar,\nbody.pt-video.pt-seeking .vjs-control-bar {\n  display: flex !important;\n  opacity: 1 !important;\n  visibility: visible !important;\n  font-size: 1.3em;\n}\n\n/* vrstva s titulky (video.js) musí zůstat viditelná i se schovanou\n   ovládací lištou */\nbody.pt-video .vjs-text-track-display {\n  display: block !important;\n  visibility: visible !important;\n  opacity: 1 !important;\n  z-index: 9002;\n}\n\n/* Titulek a hodnocení jako overlay – viditelné jen při pauze */\nbody.pt-video h1.title {\n  position: fixed;\n  top: 2vh;\n  left: 2vw;\n  max-width: 70vw;\n  z-index: 9001;\n  color: #fff !important;\n  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);\n  transition: opacity 0.3s;\n  margin: 0;\n}\n\nbody.pt-video h1.title span {\n  color: #fff !important;\n}\n\nbody.pt-video .rate {\n  position: fixed;\n  top: 2vh;\n  right: 2vw;\n  z-index: 9001;\n  color: #fff !important;\n  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);\n  transition: opacity 0.3s;\n  background: rgba(0, 0, 0, 0.5);\n  padding: 0.4rem 0.8rem;\n  border-radius: 6px;\n}\n\nbody.pt-video .rate span {\n  color: #fff !important;\n}\n\nbody.pt-video:not(.pt-paused) h1.title,\nbody.pt-video:not(.pt-paused) .rate {\n  opacity: 0;\n  pointer-events: none;\n}\n\n/* ------------------------------------------------------------------ */\n/* Doporučení (TMDB)                                                   */\n/* ------------------------------------------------------------------ */\n#pt-reco {\n  display: none;\n}\n\nbody.pt-reco #pt-reco {\n  display: block;\n  padding: 0.5rem 0 0 2.5rem;\n}\n\n/* backdrop fokusovaného filmu musí prosvítat skrz obal stránky\n   i hlavičku (vyhledávání + navigaci) až k hornímu okraji */\nbody.pt-reco .content,\nbody.pt-reco .header {\n  background: transparent !important;\n}\n\n#pt-reco-backdrop {\n  position: fixed;\n  top: 0;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: -1;\n  opacity: 0;\n  transition: opacity 0.4s;\n  pointer-events: none;\n}\n\nbody.pt-reco #pt-reco-backdrop.pt-visible {\n  opacity: 0.3;\n}\n\n/* jednotlivé obrázky se prolínají jako vrstvy uvnitř kontejneru */\n.pt-reco-layer {\n  position: absolute;\n  top: 0;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  background-size: cover;\n  background-position: center;\n  opacity: 0;\n  transition: opacity 0.3s;\n}\n\n.pt-reco-layer--on {\n  opacity: 1;\n}\n\nbody.pt-reco .pt-fav-grid,\nbody.pt-reco .pagination,\nbody.pt-reco .pt-filter-group {\n  display: none !important;\n}\n\n#pt-reco-gate {\n  margin: 12vh auto 0;\n  text-align: center;\n}\n\n#pt-reco-gate p {\n  color: #fff;\n  font-size: 1.2rem;\n  margin: 0 0 1rem;\n}\n\n#pt-reco-gate input {\n  display: block;\n  width: 420px;\n  max-width: 90%;\n  margin: 0 auto 1rem;\n  padding: 0.6rem 1rem;\n  font-size: 1.1rem;\n  color: #fff;\n  background: #333;\n  border: 2px solid #777;\n  border-radius: 8px;\n}\n\n#pt-reco-gate button {\n  padding: 0.5rem 1.6rem;\n  font-size: 1.1rem;\n  color: #fff;\n  background: #333;\n  border: 2px solid #777;\n  border-radius: 8px;\n  cursor: pointer;\n}\n\n.pt-reco-err {\n  color: #ff6b6b;\n  min-height: 1.4rem;\n  margin: 0.8rem 0 0;\n}\n\n.pt-reco-group--hidden {\n  display: none;\n}\n\n/* zvýrazněná řada – červený box přes celou sekci; vpravo navazuje\n   na fade gradient, proto je zakulacený jen vlevo */\n.pt-reco-row--boxed {\n  background: rgba(190, 30, 30, 0.5);\n  border-radius: 8px 0 0 8px;\n  padding: 0.2rem 0.8rem 0.6rem;\n  margin-left: -0.8rem;\n}\n\n.pt-reco-row {\n  position: relative;\n  margin: 0 0 1.4rem;\n}\n\n/* fade na pravém okraji – postery \"mizí\" do pozadí */\n.pt-reco-row:after {\n  content: \"\";\n  position: absolute;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  width: 160px;\n  background: linear-gradient(to right, rgba(26, 26, 26, 0), #1a1a1a);\n  pointer-events: none;\n  z-index: 2;\n}\n\n.pt-reco-row-title {\n  color: #fff;\n  font-size: 1.4rem;\n  margin: 0.8rem 0 0.5rem;\n}\n\n.pt-reco-strip {\n  display: flex;\n  overflow: hidden;\n  padding: 8px 4px;\n}\n\na.pt-reco-card {\n  position: relative;\n  flex: none;\n  width: 220px;\n  margin-right: 0.8rem;\n  color: #fff;\n  text-decoration: none;\n  border-radius: 8px;\n}\n\n/* hodnocení v rohu posteru – jen u vybrané karty */\n.pt-reco-rating {\n  display: none;\n  position: absolute;\n  top: 6px;\n  right: 6px;\n  padding: 2px 8px;\n  background: rgba(0, 0, 0, 0.75);\n  color: #ffb400;\n  font-size: 0.9rem;\n  border-radius: 6px;\n}\n\na.pt-reco-card:focus .pt-reco-rating,\na.pt-reco-card:hover .pt-reco-rating {\n  display: block;\n}\n\na.pt-reco-card img {\n  display: block;\n  width: 220px;\n  height: 330px;\n  object-fit: cover;\n  border-radius: 8px;\n  background: #333;\n}\n\n.pt-reco-title {\n  display: block;\n  margin-top: 0.35rem;\n  font-size: 1rem;\n  text-align: center;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n\n.pt-reco-year {\n  display: block;\n  margin-top: 0.1rem;\n  font-size: 0.85rem;\n  color: #9a9a9a;\n  text-align: center;\n}\n\na.pt-reco-card:focus,\n#pt-reco-gate input:focus,\n#pt-reco-gate button:focus {\n  outline: 4px solid #ffb400 !important;\n  outline-offset: 2px;\n}\n\n/* plné pozadí pod vybranou kartou, ať je text čitelný i přes backdrop */\na.pt-reco-card:focus {\n  background: #1a1a1a;\n}\n\n/* nadpis výsledků hledání – stejné proporce jako nadpis kategorie */\nbody.pt-search main h1.title {\n  font-size: 1.4rem !important;\n  margin: 0.8rem 0 0.5rem 2.5rem;\n}\n";
+  // TMDB API klíč zašifrovaný heslem (AES-256-GCM, viz encrypt-key.js)
+  var TMDB_ENC = "C4Dpa0ZQuhxgbRu77mgTZA/j4E3ofp/o57EAUaYoyvlXMVJYXoFEM/JKhbNpPs6BTQ3VyHD/OamJuQKH00EqBd7uu5dPXLaKCvzgbQ==";
+  var TMDB_LS_KEY = 'tizenprehrajto.tmdbKey';
+  var TMDB_PBKDF2_ITERATIONS = 120000;
 
   var KEY = {
     BACK: 10009,
@@ -114,7 +118,7 @@
   // ------------------------------------------------------------------
   var FOCUS_SELECTORS = {
     home: 'input.video-search-phrase, .header__links a[href="#login"]',
-    favorites: 'input.video-search-phrase, a.pt-switch, .pt-filter-group a, .pt-filter-group button, a.video--link, .pagination a',
+    favorites: 'input.video-search-phrase, a.pt-switch, span.pt-reco-return, .pt-filter-group a, .pt-filter-group button, a.video--link, .pagination a, #pt-reco-gate input, #pt-reco-gate button, .pt-reco-card',
     search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link, .pagination a',
     other: 'main a[href], main button, main input:not([type=hidden]), .header__links a, input.video-search-phrase',
   };
@@ -339,7 +343,12 @@
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       var text = (item.textContent || '').toLowerCase();
-      if (text.indexOf('premium') !== -1 || /\d+\s*dn/.test(text)) continue;
+      // premium i položky bez textu (ikonová tlačítka) – zůstal by prázdný box
+      if (text.indexOf('premium') !== -1 || /\d+\s*dn/.test(text) ||
+          !text.replace(/\s+/g, '')) {
+        item.style.display = 'none';
+        continue;
+      }
       var a = item.querySelector('a, button');
       var href = a ? (a.getAttribute('href') || '') : '';
       if (/odhl|logout|sign-?out|profil|ucet|\u00fa\u010det/.test(text + ' ' + href)) {
@@ -429,6 +438,13 @@
     } else if (wp) {
       row.appendChild(makeSwitch('Právě sledované uživateli', wp));
     }
+    var reco = makeSwitch('Doporučení', '#doporuceni');
+    reco.classList.add('pt-reco-switch');
+    reco.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      openReco();
+    });
+    row.appendChild(reco);
     header.appendChild(row);
   }
 
@@ -838,6 +854,453 @@
   }
 
   // ------------------------------------------------------------------
+  // Doporučení – vlastní stránka s řadami filmů z TMDB (jako knihovna
+  // Netflixu). Otevírá se třetím přepínačem na oblíbených/sledovaných:
+  // obsah webu se schová (CSS přes body.pt-reco) a místo něj se vykreslí
+  // #pt-reco. API klíč je v buildu jen zašifrovaný – při prvním použití
+  // ho odemkne krátké heslo (WebCrypto) a klíč se uloží do localStorage.
+  // ------------------------------------------------------------------
+  var RECO_ROWS = [
+    { title: 'Populární', path: '/movie/popular', params: '' },
+    { title: 'Populární v ČR (stream)', path: '/discover/movie', params: '&watch_region=CZ&with_watch_monetization_types=flatrate%7Cfree%7Cads&sort_by=popularity.desc&vote_count.gte=50' },
+    { title: 'Novinky na streamu', path: '/discover/movie', params: '&watch_region=CZ&with_watch_monetization_types=flatrate%7Cfree%7Cads&sort_by=primary_release_date.desc&vote_count.gte=50&primary_release_date.lte=@today', boxed: true },
+    { title: 'Animované', path: '/discover/movie', params: '&with_genres=16&sort_by=popularity.desc&vote_count.gte=100' },
+    { title: 'Náhodný tip', path: '/discover/movie', params: '&sort_by=popularity.desc&vote_average.gte=7&vote_count.gte=500', shuffle: 100 },
+    { title: 'Trendy tento týden', path: '/trending/movie/week', params: '' },
+    { title: 'Skryté klenoty', path: '/discover/movie', params: '&sort_by=popularity.desc&vote_average.gte=7.4&vote_count.gte=500&vote_count.lte=3000&primary_release_date.gte=2000-01-01' },
+    { title: 'Nejlépe hodnocené', path: '/movie/top_rated', params: '' },
+    { title: 'Komedie', path: '/discover/movie', params: '&with_genres=35&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Fantasy', path: '/discover/movie', params: '&with_genres=14&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Sci-Fi', path: '/discover/movie', params: '&with_genres=878&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Dobrodružné', path: '/discover/movie', params: '&with_genres=12&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Akční', path: '/discover/movie', params: '&with_genres=28&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Romantické', path: '/discover/movie', params: '&with_genres=10749&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+  ];
+
+  function getTmdbKey() {
+    try { return localStorage.getItem(TMDB_LS_KEY); } catch (e) { return null; }
+  }
+
+  function b64ToBytes(b64) {
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  // Rozšifrování klíče heslem – PBKDF2-SHA256 + AES-256-GCM, blob je
+  // salt(16) + iv(12) + ciphertext + tag. Špatné heslo = reject (GCM).
+  function decryptTmdbKey(password) {
+    if (!TMDB_ENC) return Promise.reject(new Error('missing blob'));
+    var subtle = window.crypto && window.crypto.subtle;
+    if (!subtle) return Promise.reject(new Error('no webcrypto'));
+    var data = b64ToBytes(TMDB_ENC);
+    var salt = data.slice(0, 16);
+    var iv = data.slice(16, 28);
+    var ct = data.slice(28);
+    return subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey'])
+      .then(function (base) {
+        return subtle.deriveKey(
+          { name: 'PBKDF2', salt: salt, iterations: TMDB_PBKDF2_ITERATIONS, hash: 'SHA-256' },
+          base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+        );
+      })
+      .then(function (key) { return subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct); })
+      .then(function (buf) { return new TextDecoder().decode(buf); });
+  }
+
+  function tmdbFetch(row, page) {
+    var params = row.params.replace('@today', new Date().toISOString().slice(0, 10));
+    var url = 'https://api.themoviedb.org/3' + row.path +
+      '?api_key=' + encodeURIComponent(getTmdbKey() || '') +
+      '&language=cs-CZ&include_adult=false&page=' + page + params;
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('TMDB ' + res.status);
+      return res.json();
+    });
+  }
+
+  function recoContainer() {
+    var el = document.getElementById('pt-reco');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'pt-reco';
+    var main = document.querySelector('main') || document.body;
+    main.appendChild(el);
+    return el;
+  }
+
+  function recoSwitchEl() {
+    var row = document.querySelector('.pt-switch-row');
+    return row ? row.querySelector('.pt-reco-switch') : null;
+  }
+
+  function openReco() {
+    document.body.classList.add('pt-reco');
+    var sw = recoSwitchEl();
+    var row = document.querySelector('.pt-switch-row');
+    if (sw) sw.classList.add('pt-switch--active');
+    // původně aktivní stránka (span) jde v režimu doporučení fokusovat
+    // a potvrzením se na ni lze vrátit
+    if (row) {
+      var orig = row.querySelector('span.pt-switch--active:not(.pt-reco-switch)');
+      if (orig) {
+        orig.classList.remove('pt-switch--active');
+        orig.classList.add('pt-reco-return');
+        orig.setAttribute('tabindex', '0');
+        if (!orig.__ptReturn) {
+          orig.__ptReturn = true;
+          orig.addEventListener('click', function () { closeReco(); });
+        }
+      }
+    }
+    var box = recoContainer();
+    if (getTmdbKey()) {
+      buildRecoRows(box);
+    } else {
+      showRecoGate(box);
+    }
+  }
+
+  function closeReco() {
+    document.body.classList.remove('pt-reco');
+    hideRecoBackdrop();
+    var sw = recoSwitchEl();
+    if (sw) sw.classList.remove('pt-switch--active');
+    var orig = document.querySelector('.pt-switch-row .pt-reco-return');
+    if (orig) {
+      orig.classList.add('pt-switch--active');
+      orig.classList.remove('pt-reco-return');
+      orig.removeAttribute('tabindex');
+    }
+    if (sw) focusEl(sw);
+  }
+
+  // ----- heslová brána -----
+  function showRecoGate(box) {
+    var gate = document.getElementById('pt-reco-gate');
+    if (gate) {
+      focusEl(gate.querySelector('input'));
+      return;
+    }
+    gate = document.createElement('form');
+    gate.id = 'pt-reco-gate';
+    var label = document.createElement('p');
+    label.textContent = 'Zadej heslo pro odemčení doporučení';
+    var input = document.createElement('input');
+    input.type = 'password';
+    input.id = 'pt-reco-pass';
+    input.autocomplete = 'off';
+    var btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.textContent = 'Odemknout';
+    var err = document.createElement('p');
+    err.className = 'pt-reco-err';
+    gate.appendChild(label);
+    gate.appendChild(input);
+    gate.appendChild(btn);
+    gate.appendChild(err);
+    gate.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      err.textContent = '';
+      btn.disabled = true;
+      decryptTmdbKey(input.value)
+        .then(function (key) {
+          try { localStorage.setItem(TMDB_LS_KEY, key); } catch (e) {}
+          gate.parentElement.removeChild(gate);
+          buildRecoRows(recoContainer());
+        })
+        .catch(function () {
+          btn.disabled = false;
+          err.textContent = 'Špatné heslo, zkus to znovu.';
+          input.value = '';
+          focusEl(input);
+        });
+    });
+    box.appendChild(gate);
+    focusEl(input);
+  }
+
+  // ----- řady filmů -----
+  var recoState = []; // {cfg, page, base, totalPages, loading, seen, strip}
+  var recoGroups = []; // {el, states, loaded} – poloviny řad kvůli výkonu
+  var recoGroupIndex = 0;
+
+  function buildRecoRows(box) {
+    var rows = document.getElementById('pt-reco-rows');
+    if (rows) {
+      var first = rows.querySelector('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card');
+      if (first) focusEl(first);
+      return;
+    }
+    rows = document.createElement('div');
+    rows.id = 'pt-reco-rows';
+    box.appendChild(rows);
+    recoState = [];
+    recoGroups = [];
+    recoGroupIndex = 0;
+    // řady rozdělené na poloviny – zobrazená a načtená je vždy jen jedna,
+    // mezi nimi se přechází šipkou dolů/nahoru na kraji skupiny
+    var half = Math.ceil(RECO_ROWS.length / 2);
+    for (var g = 0; g * half < RECO_ROWS.length; g++) {
+      var groupEl = document.createElement('div');
+      groupEl.className = 'pt-reco-group' + (g ? ' pt-reco-group--hidden' : '');
+      rows.appendChild(groupEl);
+      var group = { el: groupEl, states: [], loaded: g === 0 };
+      recoGroups.push(group);
+      var slice = RECO_ROWS.slice(g * half, (g + 1) * half);
+      for (var i = 0; i < slice.length; i++) {
+        var cfg = slice[i];
+        var rowEl = document.createElement('div');
+        rowEl.className = 'pt-reco-row' + (cfg.boxed ? ' pt-reco-row--boxed' : '');
+        var h = document.createElement('h2');
+        h.className = 'pt-reco-row-title';
+        h.textContent = cfg.title;
+        var strip = document.createElement('div');
+        strip.className = 'pt-reco-strip';
+        rowEl.appendChild(h);
+        rowEl.appendChild(strip);
+        groupEl.appendChild(rowEl);
+        var state = {
+          cfg: cfg,
+          page: 0,
+          // náhodný start pro "promíchané" řady – pokaždé jiné filmy
+          base: cfg.shuffle ? Math.floor(Math.random() * cfg.shuffle) : 0,
+          totalPages: 1,
+          loading: false,
+          seen: {},
+          strip: strip,
+          focusFirst: g === 0 && i === 0,
+        };
+        recoState.push(state);
+        group.states.push(state);
+        if (g === 0) loadRecoPage(state);
+      }
+    }
+  }
+
+  function activateRecoGroup(idx, focusLast) {
+    var group = recoGroups[idx];
+    if (!group) return;
+    for (var i = 0; i < recoGroups.length; i++) {
+      recoGroups[i].el.className = 'pt-reco-group' + (i === idx ? '' : ' pt-reco-group--hidden');
+    }
+    recoGroupIndex = idx;
+    if (!group.loaded) {
+      group.loaded = true;
+      group.states[0].focusFirst = true; // fokus až po donačtení karet
+      for (var j = 0; j < group.states.length; j++) loadRecoPage(group.states[j]);
+    }
+    var rowsIn = group.el.querySelectorAll('.pt-reco-row');
+    var row = rowsIn[focusLast ? rowsIn.length - 1 : 0];
+    var cardEl = row ? row.querySelector('.pt-reco-card') : null;
+    if (cardEl) focusEl(cardEl);
+  }
+
+  function loadRecoPage(state) {
+    // první načtení projde vždy (totalPages se zjistí až z odpovědi)
+    if (state.loading || (state.page > 0 && state.base + state.page >= state.totalPages)) return;
+    state.loading = true;
+    var wanted = state.base + state.page + 1;
+    tmdbFetch(state.cfg, wanted)
+      .then(function (data) {
+        state.loading = false;
+        state.totalPages = Math.min(data.total_pages || 1, 500);
+        var list = data.results || [];
+        // náhodný start ukázal za konec výsledků – začít od první stránky
+        if (!state.page && state.base && (state.base >= state.totalPages || !list.length)) {
+          state.base = 0;
+          loadRecoPage(state);
+          return;
+        }
+        state.page = wanted - state.base;
+        for (var i = 0; i < list.length; i++) {
+          var m = list[i];
+          if (!m.poster_path || state.seen[m.id]) continue;
+          state.seen[m.id] = true;
+          state.strip.appendChild(makeRecoCard(m));
+        }
+        if (state.focusFirst) {
+          state.focusFirst = false;
+          var first = state.strip.querySelector('.pt-reco-card');
+          if (first && document.body.classList.contains('pt-reco') &&
+              !document.getElementById('pt-reco-gate')) {
+            focusEl(first);
+          }
+        }
+      })
+      .catch(function () {
+        state.loading = false;
+        if (!state.strip.firstChild) {
+          var err = document.createElement('p');
+          err.className = 'pt-reco-err';
+          err.textContent = 'Nepodařilo se načíst (zkontroluj klíč/síť).';
+          state.strip.appendChild(err);
+        }
+      });
+  }
+
+  function makeRecoCard(movie) {
+    var title = movie.title || movie.name || '';
+    var card = document.createElement('a');
+    card.className = 'pt-reco-card';
+    card.href = '/hledej/' + encodeURIComponent(title);
+    var img = document.createElement('img');
+    img.loading = 'lazy';
+    img.src = 'https://image.tmdb.org/t/p/w342' + movie.poster_path;
+    img.alt = '';
+    var t = document.createElement('span');
+    t.className = 'pt-reco-title';
+    t.textContent = title;
+    card.appendChild(img);
+    card.appendChild(t);
+    var year = (movie.release_date || movie.first_air_date || '').slice(0, 4);
+    if (year) {
+      var y = document.createElement('span');
+      y.className = 'pt-reco-year';
+      y.textContent = year;
+      card.appendChild(y);
+    }
+    if (typeof movie.vote_average === 'number' && movie.vote_average > 0) {
+      var r = document.createElement('span');
+      r.className = 'pt-reco-rating';
+      r.textContent = '\u2605 ' + movie.vote_average.toFixed(1);
+      card.appendChild(r);
+    }
+    var backdropUrl = movie.backdrop_path
+      ? 'https://image.tmdb.org/t/p/w1280' + movie.backdrop_path
+      : 'https://image.tmdb.org/t/p/w780' + movie.poster_path;
+    card.addEventListener('focus', function () { showRecoBackdrop(backdropUrl); });
+    card.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      searchRecoTitle(title);
+    });
+    return card;
+  }
+
+  // velký poster/backdrop fokusovaného filmu – za obsahem, nad pozadím.
+  // Nový obrázek se nejdřív načte, pak se prolne (0→1) přes starý
+  // (1→0, po doběhnutí se smaže); token zahazuje opožděné načtení
+  // při rychlém přepínání karet.
+  var recoBackdropToken = 0;
+  var recoBackdropUrl = '';
+
+  function showRecoBackdrop(url) {
+    var bg = document.getElementById('pt-reco-backdrop');
+    if (!bg) {
+      bg = document.createElement('div');
+      bg.id = 'pt-reco-backdrop';
+      document.body.appendChild(bg);
+    }
+    bg.className = 'pt-visible';
+    if (url === recoBackdropUrl) return;
+    recoBackdropUrl = url;
+    var token = ++recoBackdropToken;
+    var img = new Image();
+    img.onload = function () {
+      if (token !== recoBackdropToken) return;
+      var layer = document.createElement('div');
+      layer.className = 'pt-reco-layer';
+      layer.style.backgroundImage = 'url("' + url + '")';
+      // starší skryté vrstvy pryč, zůstane jen právě viditelná
+      while (bg.childNodes.length > 1) bg.removeChild(bg.firstChild);
+      var old = bg.lastChild;
+      bg.appendChild(layer);
+      void layer.offsetWidth; // reflow, ať transition opravdu proběhne
+      layer.className = 'pt-reco-layer pt-reco-layer--on';
+      if (old) {
+        old.className = 'pt-reco-layer';
+        setTimeout(function () {
+          if (old.parentNode && old !== bg.lastChild) old.parentNode.removeChild(old);
+        }, 350);
+      }
+    };
+    img.src = url;
+  }
+
+  function hideRecoBackdrop() {
+    var bg = document.getElementById('pt-reco-backdrop');
+    if (bg) bg.className = '';
+    recoBackdropUrl = '';
+    recoBackdropToken++;
+  }
+
+  // klik na poster: vyplnit vyhledávání a rovnou vyhledat
+  function searchRecoTitle(title) {
+    var input = document.querySelector('input.video-search-phrase');
+    if (input) input.value = title;
+    location.href = '/hledej/' + encodeURIComponent(title);
+  }
+
+  // ----- navigace v řadách -----
+  function recoStateForStrip(strip) {
+    for (var i = 0; i < recoState.length; i++) {
+      if (recoState[i].strip === strip) return recoState[i];
+    }
+    return null;
+  }
+
+  function scrollStripToCard(strip, card) {
+    var sr = strip.getBoundingClientRect();
+    var cr = card.getBoundingClientRect();
+    if (cr.right > sr.right - 10) {
+      strip.scrollLeft += Math.round(cr.right - sr.right) + 120;
+    } else if (cr.left < sr.left + 10) {
+      strip.scrollLeft -= Math.round(sr.left - cr.left) + 120;
+    }
+  }
+
+  function recoNavHorizontal(card, dir) {
+    var strip = card.parentElement;
+    var next = dir > 0 ? card.nextElementSibling : card.previousElementSibling;
+    if (next && next.classList && next.classList.contains('pt-reco-card')) {
+      focusEl(next);
+      scrollStripToCard(strip, next);
+    }
+    // infinite loading: blížíme se konci řady -> přitáhnout další stránku
+    if (dir > 0) {
+      var state = recoStateForStrip(strip);
+      if (state) {
+        var cards = strip.children;
+        var idx = Array.prototype.indexOf.call(cards, next || card);
+        if (cards.length - idx <= 6) loadRecoPage(state);
+      }
+    }
+  }
+
+  function recoNavVertical(card, dir) {
+    var rowEl = card.closest('.pt-reco-row');
+    var target = dir > 0 ? rowEl.nextElementSibling : rowEl.previousElementSibling;
+    if (!target) {
+      if (dir > 0) {
+        // z poslední řady dolů do další poloviny řad
+        activateRecoGroup(recoGroupIndex + 1, false);
+      } else if (recoGroupIndex > 0) {
+        // z první řady nahoru zpět do předchozí poloviny
+        activateRecoGroup(recoGroupIndex - 1, true);
+      } else {
+        // z úplně první řady nahoru zpět na přepínače
+        var sw = recoSwitchEl();
+        focusEl(sw || document.querySelector('input.video-search-phrase'));
+      }
+      return;
+    }
+    var strip = target.querySelector('.pt-reco-strip');
+    var cards = strip ? strip.querySelectorAll('.pt-reco-card') : [];
+    if (!cards.length) return;
+    var cx = card.getBoundingClientRect().left + card.getBoundingClientRect().width / 2;
+    var best = cards[0];
+    var bestDx = Infinity;
+    for (var i = 0; i < cards.length; i++) {
+      var r = cards[i].getBoundingClientRect();
+      var dx = Math.abs(r.left + r.width / 2 - cx);
+      if (dx < bestDx) { bestDx = dx; best = cards[i]; }
+    }
+    focusEl(best);
+    scrollStripToCard(strip, best);
+  }
+
+  // ------------------------------------------------------------------
   // Klávesy
   // ------------------------------------------------------------------
   function onKeyDown(e) {
@@ -860,6 +1323,10 @@
           // Zpět zavře TV klávesnici – rovnou přejít na první návrh
           // našeptávače; bez návrhů jen zrušit fokus
           if (!openSuggestOverlay()) document.activeElement.blur();
+        } else if (document.activeElement && document.activeElement.id === 'pt-reco-pass') {
+          document.activeElement.blur();
+        } else if (document.body.classList.contains('pt-reco')) {
+          closeReco();
         } else if (type === 'home' ||
                    (type === 'favorites' && location.pathname.indexOf('/oblibena-videa') === 0)) {
           exitApp();
@@ -891,6 +1358,11 @@
           }
           return;
         }
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-reco-card')) {
+          recoNavVertical(document.activeElement, e.keyCode === KEY.DOWN ? 1 : -1);
+          return;
+        }
         // šipka dolů ve vyhledávání otevře našeptávač (pokud web nabízí)
         if (e.keyCode === KEY.DOWN &&
             document.activeElement && document.activeElement.classList &&
@@ -915,6 +1387,13 @@
           e.stopPropagation();
           return;
         }
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-reco-card')) {
+          e.preventDefault();
+          e.stopPropagation();
+          recoNavHorizontal(document.activeElement, e.keyCode === KEY.RIGHT ? 1 : -1);
+          return;
+        }
         // v gridu výsledků posouvá fokus i doleva/doprava; v inputu nechat kurzor
         if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
           e.preventDefault();
@@ -927,6 +1406,14 @@
         if (type === 'video' && !dialog) {
           e.preventDefault();
           togglePlay();
+          return;
+        }
+        // OK na původním přepínači v režimu doporučení ho zavře
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-reco-return')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeReco();
           return;
         }
         // OK na položce našeptávače ji otevře
@@ -1030,6 +1517,7 @@
     document.body.classList.add('pt-ready');
     document.body.classList.add('pt-' + type);
     tidyAccountBar();
+    setInterval(tidyAccountBar, 1000); // lišta se dorenderovává později
     if (type === 'video') initVideoPage();
     if (type === 'favorites') {
       addSwitchButton();
@@ -1037,7 +1525,6 @@
       var favTimer = setInterval(function () {
         if (tidyFavoritesLayout()) {
           clearInterval(favTimer);
-          alignPremiumToSearch();
         } else if (++favTries > 20) {
           clearInterval(favTimer);
         }

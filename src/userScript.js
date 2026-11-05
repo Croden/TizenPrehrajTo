@@ -13,6 +13,10 @@
   window.__TIZENPREHRAJTO__ = true;
 
   var CUSTOM_CSS = /*__CSS__*/ '';
+  // TMDB API klíč zašifrovaný heslem (AES-256-GCM, viz encrypt-key.js)
+  var TMDB_ENC = /*__TMDB_ENC__*/ '';
+  var TMDB_LS_KEY = 'tizenprehrajto.tmdbKey';
+  var TMDB_PBKDF2_ITERATIONS = 120000;
 
   var KEY = {
     BACK: 10009,
@@ -114,7 +118,7 @@
   // ------------------------------------------------------------------
   var FOCUS_SELECTORS = {
     home: 'input.video-search-phrase, .header__links a[href="#login"]',
-    favorites: 'input.video-search-phrase, a.pt-switch, .pt-filter-group a, .pt-filter-group button, a.video--link, .pagination a',
+    favorites: 'input.video-search-phrase, a.pt-switch, span.pt-reco-return, .pt-filter-group a, .pt-filter-group button, a.video--link, .pagination a, #pt-reco-gate input, #pt-reco-gate button, .pt-reco-card',
     search: 'input.video-search-phrase, .button--filters, #snippet-videoListing-videoListingWrapper a.video--link, .pagination a',
     other: 'main a[href], main button, main input:not([type=hidden]), .header__links a, input.video-search-phrase',
   };
@@ -339,7 +343,12 @@
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       var text = (item.textContent || '').toLowerCase();
-      if (text.indexOf('premium') !== -1 || /\d+\s*dn/.test(text)) continue;
+      // premium i položky bez textu (ikonová tlačítka) – zůstal by prázdný box
+      if (text.indexOf('premium') !== -1 || /\d+\s*dn/.test(text) ||
+          !text.replace(/\s+/g, '')) {
+        item.style.display = 'none';
+        continue;
+      }
       var a = item.querySelector('a, button');
       var href = a ? (a.getAttribute('href') || '') : '';
       if (/odhl|logout|sign-?out|profil|ucet|\u00fa\u010det/.test(text + ' ' + href)) {
@@ -429,6 +438,13 @@
     } else if (wp) {
       row.appendChild(makeSwitch('Právě sledované uživateli', wp));
     }
+    var reco = makeSwitch('Doporučení', '#doporuceni');
+    reco.classList.add('pt-reco-switch');
+    reco.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      openReco();
+    });
+    row.appendChild(reco);
     header.appendChild(row);
   }
 
@@ -838,6 +854,453 @@
   }
 
   // ------------------------------------------------------------------
+  // Doporučení – vlastní stránka s řadami filmů z TMDB (jako knihovna
+  // Netflixu). Otevírá se třetím přepínačem na oblíbených/sledovaných:
+  // obsah webu se schová (CSS přes body.pt-reco) a místo něj se vykreslí
+  // #pt-reco. API klíč je v buildu jen zašifrovaný – při prvním použití
+  // ho odemkne krátké heslo (WebCrypto) a klíč se uloží do localStorage.
+  // ------------------------------------------------------------------
+  var RECO_ROWS = [
+    { title: 'Populární', path: '/movie/popular', params: '' },
+    { title: 'Populární v ČR (stream)', path: '/discover/movie', params: '&watch_region=CZ&with_watch_monetization_types=flatrate%7Cfree%7Cads&sort_by=popularity.desc&vote_count.gte=50' },
+    { title: 'Novinky na streamu', path: '/discover/movie', params: '&watch_region=CZ&with_watch_monetization_types=flatrate%7Cfree%7Cads&sort_by=primary_release_date.desc&vote_count.gte=50&primary_release_date.lte=@today', boxed: true },
+    { title: 'Animované', path: '/discover/movie', params: '&with_genres=16&sort_by=popularity.desc&vote_count.gte=100' },
+    { title: 'Náhodný tip', path: '/discover/movie', params: '&sort_by=popularity.desc&vote_average.gte=7&vote_count.gte=500', shuffle: 100 },
+    { title: 'Trendy tento týden', path: '/trending/movie/week', params: '' },
+    { title: 'Skryté klenoty', path: '/discover/movie', params: '&sort_by=popularity.desc&vote_average.gte=7.4&vote_count.gte=500&vote_count.lte=3000&primary_release_date.gte=2000-01-01' },
+    { title: 'Nejlépe hodnocené', path: '/movie/top_rated', params: '' },
+    { title: 'Komedie', path: '/discover/movie', params: '&with_genres=35&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Fantasy', path: '/discover/movie', params: '&with_genres=14&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Sci-Fi', path: '/discover/movie', params: '&with_genres=878&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Dobrodružné', path: '/discover/movie', params: '&with_genres=12&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Akční', path: '/discover/movie', params: '&with_genres=28&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+    { title: 'Romantické', path: '/discover/movie', params: '&with_genres=10749&sort_by=popularity.desc&vote_count.gte=100', shuffle: 10 },
+  ];
+
+  function getTmdbKey() {
+    try { return localStorage.getItem(TMDB_LS_KEY); } catch (e) { return null; }
+  }
+
+  function b64ToBytes(b64) {
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  // Rozšifrování klíče heslem – PBKDF2-SHA256 + AES-256-GCM, blob je
+  // salt(16) + iv(12) + ciphertext + tag. Špatné heslo = reject (GCM).
+  function decryptTmdbKey(password) {
+    if (!TMDB_ENC) return Promise.reject(new Error('missing blob'));
+    var subtle = window.crypto && window.crypto.subtle;
+    if (!subtle) return Promise.reject(new Error('no webcrypto'));
+    var data = b64ToBytes(TMDB_ENC);
+    var salt = data.slice(0, 16);
+    var iv = data.slice(16, 28);
+    var ct = data.slice(28);
+    return subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey'])
+      .then(function (base) {
+        return subtle.deriveKey(
+          { name: 'PBKDF2', salt: salt, iterations: TMDB_PBKDF2_ITERATIONS, hash: 'SHA-256' },
+          base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+        );
+      })
+      .then(function (key) { return subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct); })
+      .then(function (buf) { return new TextDecoder().decode(buf); });
+  }
+
+  function tmdbFetch(row, page) {
+    var params = row.params.replace('@today', new Date().toISOString().slice(0, 10));
+    var url = 'https://api.themoviedb.org/3' + row.path +
+      '?api_key=' + encodeURIComponent(getTmdbKey() || '') +
+      '&language=cs-CZ&include_adult=false&page=' + page + params;
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('TMDB ' + res.status);
+      return res.json();
+    });
+  }
+
+  function recoContainer() {
+    var el = document.getElementById('pt-reco');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'pt-reco';
+    var main = document.querySelector('main') || document.body;
+    main.appendChild(el);
+    return el;
+  }
+
+  function recoSwitchEl() {
+    var row = document.querySelector('.pt-switch-row');
+    return row ? row.querySelector('.pt-reco-switch') : null;
+  }
+
+  function openReco() {
+    document.body.classList.add('pt-reco');
+    var sw = recoSwitchEl();
+    var row = document.querySelector('.pt-switch-row');
+    if (sw) sw.classList.add('pt-switch--active');
+    // původně aktivní stránka (span) jde v režimu doporučení fokusovat
+    // a potvrzením se na ni lze vrátit
+    if (row) {
+      var orig = row.querySelector('span.pt-switch--active:not(.pt-reco-switch)');
+      if (orig) {
+        orig.classList.remove('pt-switch--active');
+        orig.classList.add('pt-reco-return');
+        orig.setAttribute('tabindex', '0');
+        if (!orig.__ptReturn) {
+          orig.__ptReturn = true;
+          orig.addEventListener('click', function () { closeReco(); });
+        }
+      }
+    }
+    var box = recoContainer();
+    if (getTmdbKey()) {
+      buildRecoRows(box);
+    } else {
+      showRecoGate(box);
+    }
+  }
+
+  function closeReco() {
+    document.body.classList.remove('pt-reco');
+    hideRecoBackdrop();
+    var sw = recoSwitchEl();
+    if (sw) sw.classList.remove('pt-switch--active');
+    var orig = document.querySelector('.pt-switch-row .pt-reco-return');
+    if (orig) {
+      orig.classList.add('pt-switch--active');
+      orig.classList.remove('pt-reco-return');
+      orig.removeAttribute('tabindex');
+    }
+    if (sw) focusEl(sw);
+  }
+
+  // ----- heslová brána -----
+  function showRecoGate(box) {
+    var gate = document.getElementById('pt-reco-gate');
+    if (gate) {
+      focusEl(gate.querySelector('input'));
+      return;
+    }
+    gate = document.createElement('form');
+    gate.id = 'pt-reco-gate';
+    var label = document.createElement('p');
+    label.textContent = 'Zadej heslo pro odemčení doporučení';
+    var input = document.createElement('input');
+    input.type = 'password';
+    input.id = 'pt-reco-pass';
+    input.autocomplete = 'off';
+    var btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.textContent = 'Odemknout';
+    var err = document.createElement('p');
+    err.className = 'pt-reco-err';
+    gate.appendChild(label);
+    gate.appendChild(input);
+    gate.appendChild(btn);
+    gate.appendChild(err);
+    gate.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      err.textContent = '';
+      btn.disabled = true;
+      decryptTmdbKey(input.value)
+        .then(function (key) {
+          try { localStorage.setItem(TMDB_LS_KEY, key); } catch (e) {}
+          gate.parentElement.removeChild(gate);
+          buildRecoRows(recoContainer());
+        })
+        .catch(function () {
+          btn.disabled = false;
+          err.textContent = 'Špatné heslo, zkus to znovu.';
+          input.value = '';
+          focusEl(input);
+        });
+    });
+    box.appendChild(gate);
+    focusEl(input);
+  }
+
+  // ----- řady filmů -----
+  var recoState = []; // {cfg, page, base, totalPages, loading, seen, strip}
+  var recoGroups = []; // {el, states, loaded} – poloviny řad kvůli výkonu
+  var recoGroupIndex = 0;
+
+  function buildRecoRows(box) {
+    var rows = document.getElementById('pt-reco-rows');
+    if (rows) {
+      var first = rows.querySelector('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card');
+      if (first) focusEl(first);
+      return;
+    }
+    rows = document.createElement('div');
+    rows.id = 'pt-reco-rows';
+    box.appendChild(rows);
+    recoState = [];
+    recoGroups = [];
+    recoGroupIndex = 0;
+    // řady rozdělené na poloviny – zobrazená a načtená je vždy jen jedna,
+    // mezi nimi se přechází šipkou dolů/nahoru na kraji skupiny
+    var half = Math.ceil(RECO_ROWS.length / 2);
+    for (var g = 0; g * half < RECO_ROWS.length; g++) {
+      var groupEl = document.createElement('div');
+      groupEl.className = 'pt-reco-group' + (g ? ' pt-reco-group--hidden' : '');
+      rows.appendChild(groupEl);
+      var group = { el: groupEl, states: [], loaded: g === 0 };
+      recoGroups.push(group);
+      var slice = RECO_ROWS.slice(g * half, (g + 1) * half);
+      for (var i = 0; i < slice.length; i++) {
+        var cfg = slice[i];
+        var rowEl = document.createElement('div');
+        rowEl.className = 'pt-reco-row' + (cfg.boxed ? ' pt-reco-row--boxed' : '');
+        var h = document.createElement('h2');
+        h.className = 'pt-reco-row-title';
+        h.textContent = cfg.title;
+        var strip = document.createElement('div');
+        strip.className = 'pt-reco-strip';
+        rowEl.appendChild(h);
+        rowEl.appendChild(strip);
+        groupEl.appendChild(rowEl);
+        var state = {
+          cfg: cfg,
+          page: 0,
+          // náhodný start pro "promíchané" řady – pokaždé jiné filmy
+          base: cfg.shuffle ? Math.floor(Math.random() * cfg.shuffle) : 0,
+          totalPages: 1,
+          loading: false,
+          seen: {},
+          strip: strip,
+          focusFirst: g === 0 && i === 0,
+        };
+        recoState.push(state);
+        group.states.push(state);
+        if (g === 0) loadRecoPage(state);
+      }
+    }
+  }
+
+  function activateRecoGroup(idx, focusLast) {
+    var group = recoGroups[idx];
+    if (!group) return;
+    for (var i = 0; i < recoGroups.length; i++) {
+      recoGroups[i].el.className = 'pt-reco-group' + (i === idx ? '' : ' pt-reco-group--hidden');
+    }
+    recoGroupIndex = idx;
+    if (!group.loaded) {
+      group.loaded = true;
+      group.states[0].focusFirst = true; // fokus až po donačtení karet
+      for (var j = 0; j < group.states.length; j++) loadRecoPage(group.states[j]);
+    }
+    var rowsIn = group.el.querySelectorAll('.pt-reco-row');
+    var row = rowsIn[focusLast ? rowsIn.length - 1 : 0];
+    var cardEl = row ? row.querySelector('.pt-reco-card') : null;
+    if (cardEl) focusEl(cardEl);
+  }
+
+  function loadRecoPage(state) {
+    // první načtení projde vždy (totalPages se zjistí až z odpovědi)
+    if (state.loading || (state.page > 0 && state.base + state.page >= state.totalPages)) return;
+    state.loading = true;
+    var wanted = state.base + state.page + 1;
+    tmdbFetch(state.cfg, wanted)
+      .then(function (data) {
+        state.loading = false;
+        state.totalPages = Math.min(data.total_pages || 1, 500);
+        var list = data.results || [];
+        // náhodný start ukázal za konec výsledků – začít od první stránky
+        if (!state.page && state.base && (state.base >= state.totalPages || !list.length)) {
+          state.base = 0;
+          loadRecoPage(state);
+          return;
+        }
+        state.page = wanted - state.base;
+        for (var i = 0; i < list.length; i++) {
+          var m = list[i];
+          if (!m.poster_path || state.seen[m.id]) continue;
+          state.seen[m.id] = true;
+          state.strip.appendChild(makeRecoCard(m));
+        }
+        if (state.focusFirst) {
+          state.focusFirst = false;
+          var first = state.strip.querySelector('.pt-reco-card');
+          if (first && document.body.classList.contains('pt-reco') &&
+              !document.getElementById('pt-reco-gate')) {
+            focusEl(first);
+          }
+        }
+      })
+      .catch(function () {
+        state.loading = false;
+        if (!state.strip.firstChild) {
+          var err = document.createElement('p');
+          err.className = 'pt-reco-err';
+          err.textContent = 'Nepodařilo se načíst (zkontroluj klíč/síť).';
+          state.strip.appendChild(err);
+        }
+      });
+  }
+
+  function makeRecoCard(movie) {
+    var title = movie.title || movie.name || '';
+    var card = document.createElement('a');
+    card.className = 'pt-reco-card';
+    card.href = '/hledej/' + encodeURIComponent(title);
+    var img = document.createElement('img');
+    img.loading = 'lazy';
+    img.src = 'https://image.tmdb.org/t/p/w342' + movie.poster_path;
+    img.alt = '';
+    var t = document.createElement('span');
+    t.className = 'pt-reco-title';
+    t.textContent = title;
+    card.appendChild(img);
+    card.appendChild(t);
+    var year = (movie.release_date || movie.first_air_date || '').slice(0, 4);
+    if (year) {
+      var y = document.createElement('span');
+      y.className = 'pt-reco-year';
+      y.textContent = year;
+      card.appendChild(y);
+    }
+    if (typeof movie.vote_average === 'number' && movie.vote_average > 0) {
+      var r = document.createElement('span');
+      r.className = 'pt-reco-rating';
+      r.textContent = '\u2605 ' + movie.vote_average.toFixed(1);
+      card.appendChild(r);
+    }
+    var backdropUrl = movie.backdrop_path
+      ? 'https://image.tmdb.org/t/p/w1280' + movie.backdrop_path
+      : 'https://image.tmdb.org/t/p/w780' + movie.poster_path;
+    card.addEventListener('focus', function () { showRecoBackdrop(backdropUrl); });
+    card.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      searchRecoTitle(title);
+    });
+    return card;
+  }
+
+  // velký poster/backdrop fokusovaného filmu – za obsahem, nad pozadím.
+  // Nový obrázek se nejdřív načte, pak se prolne (0→1) přes starý
+  // (1→0, po doběhnutí se smaže); token zahazuje opožděné načtení
+  // při rychlém přepínání karet.
+  var recoBackdropToken = 0;
+  var recoBackdropUrl = '';
+
+  function showRecoBackdrop(url) {
+    var bg = document.getElementById('pt-reco-backdrop');
+    if (!bg) {
+      bg = document.createElement('div');
+      bg.id = 'pt-reco-backdrop';
+      document.body.appendChild(bg);
+    }
+    bg.className = 'pt-visible';
+    if (url === recoBackdropUrl) return;
+    recoBackdropUrl = url;
+    var token = ++recoBackdropToken;
+    var img = new Image();
+    img.onload = function () {
+      if (token !== recoBackdropToken) return;
+      var layer = document.createElement('div');
+      layer.className = 'pt-reco-layer';
+      layer.style.backgroundImage = 'url("' + url + '")';
+      // starší skryté vrstvy pryč, zůstane jen právě viditelná
+      while (bg.childNodes.length > 1) bg.removeChild(bg.firstChild);
+      var old = bg.lastChild;
+      bg.appendChild(layer);
+      void layer.offsetWidth; // reflow, ať transition opravdu proběhne
+      layer.className = 'pt-reco-layer pt-reco-layer--on';
+      if (old) {
+        old.className = 'pt-reco-layer';
+        setTimeout(function () {
+          if (old.parentNode && old !== bg.lastChild) old.parentNode.removeChild(old);
+        }, 350);
+      }
+    };
+    img.src = url;
+  }
+
+  function hideRecoBackdrop() {
+    var bg = document.getElementById('pt-reco-backdrop');
+    if (bg) bg.className = '';
+    recoBackdropUrl = '';
+    recoBackdropToken++;
+  }
+
+  // klik na poster: vyplnit vyhledávání a rovnou vyhledat
+  function searchRecoTitle(title) {
+    var input = document.querySelector('input.video-search-phrase');
+    if (input) input.value = title;
+    location.href = '/hledej/' + encodeURIComponent(title);
+  }
+
+  // ----- navigace v řadách -----
+  function recoStateForStrip(strip) {
+    for (var i = 0; i < recoState.length; i++) {
+      if (recoState[i].strip === strip) return recoState[i];
+    }
+    return null;
+  }
+
+  function scrollStripToCard(strip, card) {
+    var sr = strip.getBoundingClientRect();
+    var cr = card.getBoundingClientRect();
+    if (cr.right > sr.right - 10) {
+      strip.scrollLeft += Math.round(cr.right - sr.right) + 120;
+    } else if (cr.left < sr.left + 10) {
+      strip.scrollLeft -= Math.round(sr.left - cr.left) + 120;
+    }
+  }
+
+  function recoNavHorizontal(card, dir) {
+    var strip = card.parentElement;
+    var next = dir > 0 ? card.nextElementSibling : card.previousElementSibling;
+    if (next && next.classList && next.classList.contains('pt-reco-card')) {
+      focusEl(next);
+      scrollStripToCard(strip, next);
+    }
+    // infinite loading: blížíme se konci řady -> přitáhnout další stránku
+    if (dir > 0) {
+      var state = recoStateForStrip(strip);
+      if (state) {
+        var cards = strip.children;
+        var idx = Array.prototype.indexOf.call(cards, next || card);
+        if (cards.length - idx <= 6) loadRecoPage(state);
+      }
+    }
+  }
+
+  function recoNavVertical(card, dir) {
+    var rowEl = card.closest('.pt-reco-row');
+    var target = dir > 0 ? rowEl.nextElementSibling : rowEl.previousElementSibling;
+    if (!target) {
+      if (dir > 0) {
+        // z poslední řady dolů do další poloviny řad
+        activateRecoGroup(recoGroupIndex + 1, false);
+      } else if (recoGroupIndex > 0) {
+        // z první řady nahoru zpět do předchozí poloviny
+        activateRecoGroup(recoGroupIndex - 1, true);
+      } else {
+        // z úplně první řady nahoru zpět na přepínače
+        var sw = recoSwitchEl();
+        focusEl(sw || document.querySelector('input.video-search-phrase'));
+      }
+      return;
+    }
+    var strip = target.querySelector('.pt-reco-strip');
+    var cards = strip ? strip.querySelectorAll('.pt-reco-card') : [];
+    if (!cards.length) return;
+    var cx = card.getBoundingClientRect().left + card.getBoundingClientRect().width / 2;
+    var best = cards[0];
+    var bestDx = Infinity;
+    for (var i = 0; i < cards.length; i++) {
+      var r = cards[i].getBoundingClientRect();
+      var dx = Math.abs(r.left + r.width / 2 - cx);
+      if (dx < bestDx) { bestDx = dx; best = cards[i]; }
+    }
+    focusEl(best);
+    scrollStripToCard(strip, best);
+  }
+
+  // ------------------------------------------------------------------
   // Klávesy
   // ------------------------------------------------------------------
   function onKeyDown(e) {
@@ -860,6 +1323,10 @@
           // Zpět zavře TV klávesnici – rovnou přejít na první návrh
           // našeptávače; bez návrhů jen zrušit fokus
           if (!openSuggestOverlay()) document.activeElement.blur();
+        } else if (document.activeElement && document.activeElement.id === 'pt-reco-pass') {
+          document.activeElement.blur();
+        } else if (document.body.classList.contains('pt-reco')) {
+          closeReco();
         } else if (type === 'home' ||
                    (type === 'favorites' && location.pathname.indexOf('/oblibena-videa') === 0)) {
           exitApp();
@@ -891,6 +1358,11 @@
           }
           return;
         }
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-reco-card')) {
+          recoNavVertical(document.activeElement, e.keyCode === KEY.DOWN ? 1 : -1);
+          return;
+        }
         // šipka dolů ve vyhledávání otevře našeptávač (pokud web nabízí)
         if (e.keyCode === KEY.DOWN &&
             document.activeElement && document.activeElement.classList &&
@@ -915,6 +1387,13 @@
           e.stopPropagation();
           return;
         }
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-reco-card')) {
+          e.preventDefault();
+          e.stopPropagation();
+          recoNavHorizontal(document.activeElement, e.keyCode === KEY.RIGHT ? 1 : -1);
+          return;
+        }
         // v gridu výsledků posouvá fokus i doleva/doprava; v inputu nechat kurzor
         if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
           e.preventDefault();
@@ -927,6 +1406,14 @@
         if (type === 'video' && !dialog) {
           e.preventDefault();
           togglePlay();
+          return;
+        }
+        // OK na původním přepínači v režimu doporučení ho zavře
+        if (document.activeElement && document.activeElement.classList &&
+            document.activeElement.classList.contains('pt-reco-return')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeReco();
           return;
         }
         // OK na položce našeptávače ji otevře
@@ -1030,6 +1517,7 @@
     document.body.classList.add('pt-ready');
     document.body.classList.add('pt-' + type);
     tidyAccountBar();
+    setInterval(tidyAccountBar, 1000); // lišta se dorenderovává později
     if (type === 'video') initVideoPage();
     if (type === 'favorites') {
       addSwitchButton();
@@ -1037,7 +1525,6 @@
       var favTimer = setInterval(function () {
         if (tidyFavoritesLayout()) {
           clearInterval(favTimer);
-          alignPremiumToSearch();
         } else if (++favTries > 20) {
           clearInterval(favTimer);
         }
