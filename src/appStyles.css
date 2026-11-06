@@ -816,6 +816,12 @@ a.pt-reco-card:focus {
   background: #1a1a1a;
 }
 
+/* na PC dělá červený nadpis :hover webu, na TV je jen :focus */
+a.pt-reco-card:focus .pt-reco-title,
+a.pt-reco-card:hover .pt-reco-title {
+  color: #be1e1e;
+}
+
 /* nadpis výsledků hledání – stejné proporce jako nadpis kategorie */
 body.pt-search main h1.title {
   font-size: 1.4rem !important;

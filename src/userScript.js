@@ -394,7 +394,8 @@
         if (sib === el) continue;
         if (sib.querySelector('a.video--link') || sib.querySelector('input.video-search-phrase') ||
             sib.querySelector('.pagination-item') ||
-            (sib.classList && sib.classList.contains('pagination'))) continue;
+            (sib.classList && sib.classList.contains('pagination')) ||
+            sib.id === 'pt-reco' || sib.querySelector('#pt-reco')) continue;
         sib.style.display = 'none';
       }
       el.style.width = '100%';
@@ -453,6 +454,7 @@
     reco.classList.add('pt-reco-switch');
     reco.addEventListener('click', function (ev) {
       ev.preventDefault();
+      clearRecoPos(); // manuální přepnutí = vždy od začátku
       openReco();
     });
     row.appendChild(reco);
@@ -892,6 +894,46 @@
     try { return localStorage.getItem(TMDB_LS_KEY); } catch (e) { return null; }
   }
 
+  // ----- poslední pozice v doporučeních -----
+  // Po výběru posteru se hledaná stránka načítá celá znovu, takže BACK
+  // zahodí stav doporučení. Pozice (skupina/řada/karta + náhodné starty
+  // promíchaných řad) se proto ukládá do localStorage a při návratu na
+  // stránku se doporučení samo otevře na stejném místě.
+  var RECO_POS_KEY = 'tizenprehrajto.recoPos';
+  var RECO_POS_TTL = 6 * 60 * 60 * 1000;
+
+  function saveRecoPos(card) {
+    var strip = card.parentElement;
+    var rowEl = card.closest('.pt-reco-row');
+    var groupEl = card.closest('.pt-reco-group');
+    var rows = document.getElementById('pt-reco-rows');
+    if (!strip || !rowEl || !groupEl || !rows) return;
+    var bases = [];
+    for (var i = 0; i < recoState.length; i++) bases.push(recoState[i].base);
+    try {
+      localStorage.setItem(RECO_POS_KEY, JSON.stringify({
+        g: Array.prototype.indexOf.call(rows.children, groupEl),
+        r: Array.prototype.indexOf.call(groupEl.children, rowEl),
+        c: Array.prototype.indexOf.call(strip.children, card),
+        bases: bases,
+        t: Date.now(),
+      }));
+    } catch (e) {}
+  }
+
+  function readRecoPos() {
+    try {
+      var pos = JSON.parse(localStorage.getItem(RECO_POS_KEY));
+      if (!pos || typeof pos.g !== 'number' || typeof pos.r !== 'number' ||
+          typeof pos.c !== 'number' || Date.now() - (pos.t || 0) > RECO_POS_TTL) return null;
+      return pos;
+    } catch (e) { return null; }
+  }
+
+  function clearRecoPos() {
+    try { localStorage.removeItem(RECO_POS_KEY); } catch (e) {}
+  }
+
   function b64ToBytes(b64) {
     var bin = atob(b64);
     var out = new Uint8Array(bin.length);
@@ -946,7 +988,7 @@
     return row ? row.querySelector('.pt-reco-switch') : null;
   }
 
-  function openReco() {
+  function openReco(restore) {
     document.body.classList.add('pt-reco');
     var sw = recoSwitchEl();
     var row = document.querySelector('.pt-switch-row');
@@ -967,13 +1009,14 @@
     }
     var box = recoContainer();
     if (getTmdbKey()) {
-      buildRecoRows(box);
+      buildRecoRows(box, restore);
     } else {
       showRecoGate(box);
     }
   }
 
   function closeReco() {
+    clearRecoPos();
     document.body.classList.remove('pt-reco');
     hideRecoBackdrop();
     var sw = recoSwitchEl();
@@ -1037,11 +1080,12 @@
   var recoGroups = []; // {el, states, loaded} – poloviny řad kvůli výkonu
   var recoGroupIndex = 0;
 
-  function buildRecoRows(box) {
+  function buildRecoRows(box, restore) {
     var rows = document.getElementById('pt-reco-rows');
     if (rows) {
-      var first = rows.querySelector('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card');
-      if (first) focusEl(first);
+      // opakované otevření (manuální klik) – vždy nahoru na první kartu
+      window.scrollTo(0, 0);
+      activateRecoGroup(0, false);
       return;
     }
     rows = document.createElement('div');
@@ -1072,25 +1116,35 @@
         rowEl.appendChild(h);
         rowEl.appendChild(strip);
         groupEl.appendChild(rowEl);
+        var globalIdx = g * half + i;
+        // při obnově pozice stejné náhodné starty jako před odchodem,
+        // jinak náhodný start pro "promíchané" řady – pokaždé jiné filmy
+        var base = restore && restore.bases && typeof restore.bases[globalIdx] === 'number'
+          ? restore.bases[globalIdx]
+          : (cfg.shuffle ? Math.floor(Math.random() * cfg.shuffle) : 0);
         var state = {
           cfg: cfg,
           page: 0,
-          // náhodný start pro "promíchané" řady – pokaždé jiné filmy
-          base: cfg.shuffle ? Math.floor(Math.random() * cfg.shuffle) : 0,
+          base: base,
           totalPages: 1,
           loading: false,
           seen: {},
           strip: strip,
-          focusFirst: g === 0 && i === 0,
+          focusFirst: !restore && g === 0 && i === 0,
         };
         recoState.push(state);
         group.states.push(state);
         if (g === 0) loadRecoPage(state);
       }
     }
+    if (restore) {
+      if (restore.g > 0) showRecoGroup(restore.g);
+      restoreRecoFocus(restore);
+    }
   }
 
-  function activateRecoGroup(idx, focusLast) {
+  // přepnutí viditelné poloviny řad (bez fokusu) + líné donačtení
+  function showRecoGroup(idx) {
     var group = recoGroups[idx];
     if (!group) return;
     for (var i = 0; i < recoGroups.length; i++) {
@@ -1099,9 +1153,15 @@
     recoGroupIndex = idx;
     if (!group.loaded) {
       group.loaded = true;
-      group.states[0].focusFirst = true; // fokus až po donačtení karet
       for (var j = 0; j < group.states.length; j++) loadRecoPage(group.states[j]);
     }
+  }
+
+  function activateRecoGroup(idx, focusLast) {
+    var group = recoGroups[idx];
+    if (!group) return;
+    if (!group.loaded) group.states[0].focusFirst = true; // fokus až po donačtení karet
+    showRecoGroup(idx);
     var rowsIn = group.el.querySelectorAll('.pt-reco-row');
     var row = rowsIn[focusLast ? rowsIn.length - 1 : 0];
     var cardEl = row ? row.querySelector('.pt-reco-card') : null;
@@ -1109,6 +1169,32 @@
       focusEl(cardEl);
       scrollWindowToCard(cardEl);
     }
+  }
+
+  // po návratu z hledání počkat, až se uložená karta donačte (včetně
+  // dalších stránek řady), a fokusovat ji
+  function restoreRecoFocus(pos) {
+    var group = recoGroups[pos.g] || recoGroups[0];
+    if (!group) return;
+    var state = group.states[pos.r] || group.states[0];
+    if (!state) return;
+    var tries = 0;
+    var timer = setInterval(function () {
+      var cards = state.strip.querySelectorAll('.pt-reco-card');
+      var found = cards.length > pos.c;
+      var exhausted = !state.loading && state.page > 0 &&
+        state.base + state.page >= state.totalPages;
+      if (found || exhausted || ++tries > 80) {
+        clearInterval(timer);
+        var card = found ? cards[pos.c] : cards[cards.length - 1];
+        if (!card) return;
+        focusEl(card);
+        scrollStripToCard(state.strip, card);
+        scrollWindowToCard(card);
+      } else if (!state.loading) {
+        loadRecoPage(state);
+      }
+    }, 250);
   }
 
   function loadRecoPage(state) {
@@ -1188,6 +1274,7 @@
     card.addEventListener('focus', function () { showRecoBackdrop(backdropUrl); });
     card.addEventListener('click', function (ev) {
       ev.preventDefault();
+      saveRecoPos(card);
       searchRecoTitle(title);
     });
     return card;
@@ -1509,6 +1596,8 @@
   // Autofocus podle stránky
   // ------------------------------------------------------------------
   function autofocus(type) {
+    // obnovená doporučení si fokus řídí sama
+    if (document.body.classList.contains('pt-reco')) return;
     if (type === 'home') {
       focusEl(document.querySelector('input.video-search-phrase'));
     } else if (type === 'favorites') {
@@ -1547,6 +1636,9 @@
     if (type === 'video') initVideoPage();
     if (type === 'favorites') {
       addSwitchButton();
+      // návrat z hledání vybraného posteru – otevřít doporučení tam, kde byl
+      var recoPos = readRecoPos();
+      if (recoPos && getTmdbKey()) openReco(recoPos);
       var favTries = 0;
       var favTimer = setInterval(function () {
         if (tidyFavoritesLayout()) {
