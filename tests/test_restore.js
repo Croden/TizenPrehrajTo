@@ -20,6 +20,8 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROME });
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  // rychlý limiter dotazů (výchozí 8/min by test natahoval na minuty)
+  await ctx.addInitScript(() => { window.__PT_SCRAPE__ = { perMin: 1000, concurrency: 2, pause: 1500 }; });
   await ctx.addInitScript(MOD);
   const page = await ctx.newPage();
   await page.route('https://prehrajto.cz/oblibena-videa/', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: pageHtml }));
@@ -84,8 +86,8 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   ok('manuální klik = smazaná pozice', !afterClick.pos);
   ok('manuální klik = první karta první řady', afterClick.isFirstCard, afterClick.firstRow);
 
-  // restore do druhé skupiny: dolů na 8. řadu, vybrat, enter, back
-  for (let i = 0; i < 7; i++) { await page.keyboard.press('ArrowDown'); await page.waitForTimeout(300); }
+  // restore do druhé skupiny: dolů na 9. řadu, vybrat, enter, back
+  for (let i = 0; i < 8; i++) { await page.keyboard.press('ArrowDown'); await page.waitForTimeout(300); }
   await page.waitForSelector('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card', { timeout: 15000 });
   await page.waitForTimeout(1500);
   const picked2 = await page.evaluate(() => ({

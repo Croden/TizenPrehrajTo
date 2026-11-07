@@ -18,6 +18,8 @@ const pageHtml = `<!doctype html><html><head><title>x</title></head><body>
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROME });
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  // rychlý limiter dotazů (výchozí 8/min by test natahoval na minuty)
+  await ctx.addInitScript(() => { window.__PT_SCRAPE__ = { perMin: 1000, concurrency: 2, pause: 1500 }; });
   await ctx.addInitScript(MOD);
   await ctx.addInitScript(() => {
     // simulace staré Tizen Chromium: scrollIntoView s options nic nedělá
@@ -28,7 +30,7 @@ const pageHtml = `<!doctype html><html><head><title>x</title></head><body>
   await page.goto('https://prehrajto.cz/oblibena-videa/');
   await page.waitForTimeout(400);
   await page.click('.pt-switch-row .pt-reco-switch');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(450);
   if (await page.locator('#pt-reco-gate').isVisible().catch(() => false)) {
     await page.fill('#pt-reco-pass', 'test');
     await page.click('#pt-reco-gate button');
@@ -40,32 +42,32 @@ const pageHtml = `<!doctype html><html><head><title>x</title></head><body>
   await page.evaluate(() => document.querySelector('.pt-reco-card').focus());
   const y0 = await page.evaluate(() => window.scrollY);
   await page.keyboard.press('ArrowDown');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(450);
   const y1 = await page.evaluate(() => window.scrollY);
   ok('dolů z první karty scrolluje okno', y1 > y0, y0 + ' → ' + y1);
   ok('fokus v další řadě', await page.evaluate(() => /pt-reco-card/.test(document.activeElement.className)));
 
   // dál dolů – scroll pokračuje
   await page.keyboard.press('ArrowDown');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(450);
   const y2 = await page.evaluate(() => window.scrollY);
   ok('dolů dál scrolluje', y2 > y1, y1 + ' → ' + y2);
 
   // nahoru zpět – scroll se vrací
   await page.keyboard.press('ArrowUp');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(450);
   await page.keyboard.press('ArrowUp');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(450);
   const y3 = await page.evaluate(() => window.scrollY);
   // nahoru z první řady → přepínač + scroll na 0
   await page.keyboard.press('ArrowUp');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(450);
   const yTop = await page.evaluate(() => window.scrollY);
   ok('nahoru vrací scroll', y3 < y2, y2 + ' → ' + y3);
   ok('nahoru z první řady = scroll 0', yTop === 0, 'y=' + yTop);
 
   // dolů až na konec skupiny → druhá skupina, karta viditelná
-  for (let i = 0; i < 8; i++) { await page.keyboard.press('ArrowDown'); await page.waitForTimeout(250); }
+  for (let i = 0; i < 9; i++) { await page.keyboard.press('ArrowDown'); await page.waitForTimeout(250); }
   await page.waitForSelector('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card', { timeout: 15000 });
   await page.waitForTimeout(1500);
   const vis = await page.evaluate(() => {

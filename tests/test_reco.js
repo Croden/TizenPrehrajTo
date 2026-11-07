@@ -38,6 +38,8 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROME });
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  // rychlý limiter dotazů (výchozí 8/min by test natahoval na minuty)
+  await ctx.addInitScript(() => { window.__PT_SCRAPE__ = { perMin: 1000, concurrency: 2, pause: 1500 }; });
   await ctx.addInitScript(MOD);
   const page = await ctx.newPage();
   await page.route('https://prehrajto.cz/oblibena-videa/', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: pageHtml }));
@@ -70,7 +72,7 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   await page.waitForTimeout(1500);
   const rows = await page.locator('.pt-reco-row').count();
   const cards = await page.locator('.pt-reco-card').count();
-  ok('řady kategorií', rows === 14, 'rows=' + rows);
+  ok('řady kategorií', rows === 16, 'rows=' + rows);
   ok('karty načtené', cards > 50, 'cards=' + cards);
   ok('klíč v localStorage', await page.evaluate(() => !!localStorage.getItem('tizenprehrajto.tmdbKey')));
   ok('titulky viditelné', await page.locator('.pt-reco-title').first().isVisible());
@@ -140,7 +142,7 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   await page.waitForTimeout(300);
   ok('BACK zavře doporučení', !(await page.evaluate(() => document.body.classList.contains('pt-reco'))));
   const fcls = await page.evaluate(() => document.activeElement.className);
-  ok('fokus zpět na přepínači', /pt-reco-switch/.test(fcls), fcls);
+  ok('fokus zpět na první video', /video--link/.test(fcls), fcls);
 
   // 12. Enter na pt-reco-return zavře
   await page.click('.pt-switch-row .pt-reco-switch');

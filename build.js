@@ -13,6 +13,14 @@ const out = script
   .replace("/*__CSS__*/ ''", JSON.stringify(css))
   .replace("/*__TMDB_ENC__*/ ''", JSON.stringify(tmdbEnc));
 
+// kontrola syntaxe (kód se nespouští) – rozbitý build se nesmí dostat na TV
+try {
+  new Function(out);
+} catch (e) {
+  console.error('Syntaktická chyba v buildu: ' + e.message);
+  process.exit(1);
+}
+
 fs.mkdirSync(dist, { recursive: true });
 fs.writeFileSync(path.join(dist, 'userScript.js'), out);
 console.log('dist/userScript.js vygenerován (' + out.length + ' B)');
