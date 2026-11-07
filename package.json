@@ -21,5 +21,8 @@
     "build": "node build.js",
     "purge": "curl -s https://purge.jsdelivr.net/gh/Croden/TizenPrehrajTo@main/package.json && curl -s https://purge.jsdelivr.net/gh/Croden/TizenPrehrajTo@main/dist/userScript.js && echo"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.65.0"
+  }
 }
