@@ -1307,3 +1307,26 @@ a.pt-reco-card--unavailable:focus .pt-reco-poster img,
 a.pt-reco-card--unavailable:hover .pt-reco-poster img {
   opacity: 1;
 }
+
+/* hledání omezené webem (429) – hláška s odpočtem nového pokusu */
+#pt-blocked {
+  max-width: 900px;
+  margin: 60px auto;
+  padding: 24px 28px;
+  background: #222;
+  border-left: 6px solid #be1e1e;
+  border-radius: 8px;
+}
+
+.pt-blocked-title {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.pt-blocked-sub {
+  margin: 0;
+  color: #bbb;
+  font-size: 16px;
+}

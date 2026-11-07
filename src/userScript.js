@@ -1126,6 +1126,15 @@
     } catch (e) { return null; }
   }
 
+  // stránka načtená přes Zpět/Vpřed (náš BACK volá history.back())
+  function isBackNavigation() {
+    try {
+      var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+      if (nav && nav.type) return nav.type === 'back_forward';
+    } catch (e) {}
+    try { return !!(performance.navigation && performance.navigation.type === 2); } catch (e2) { return false; }
+  }
+
   function clearRecoPos() {
     try { localStorage.removeItem(RECO_POS_KEY); } catch (e) {}
   }
@@ -1832,6 +1841,7 @@
   var AVAIL_RETRY_DELAY = 60 * 1000; // síťová chyba → znovu za minutu
   var AVAIL_MAX_RETRIES = 5;
   var AVAIL_MAX_BLOCKS = 5; // opakování po 429/omezení na jeden titul
+  var AVAIL_ZERO_RECHECK = (window.__PT_SCRAPE__ && window.__PT_SCRAPE__.zeroRecheck) || 30 * 1000;
   var AVAIL_START_DELAY = 1000;
   var AVAIL_MIN_DURATION = 40 * 60;
   var RECO_MIN_VOTE = 7;
@@ -2089,6 +2099,20 @@
     scrapeLog('hledání', job.movie.title, job.user ? '(fokus)' : '');
     fetchSearchResults(job.movie.title)
       .then(function (items) {
+        // Úplně prázdné hledání bývá u známých filmů omezení webu (i bez
+        // 429) – neuložit hned, za AVAIL_ZERO_RECHECK ověřit znovu; až
+        // druhé prázdné hledání znamená „Nedostupné".
+        if (!items.length && !job.zeroChecked) {
+          job.zeroChecked = true;
+          scrapeLog('prázdné hledání → ověřím znovu', job.movie.title);
+          setTimeout(function () {
+            if (availJobs[key] && availQueue.indexOf(key) === -1 && availLowQueue.indexOf(key) === -1) {
+              availQueue.push(key);
+              pumpAvailability();
+            }
+          }, AVAIL_ZERO_RECHECK);
+          return;
+        }
         delete availJobs[key];
         applyAvailabilityToAll(job.movie, availCacheSet(job.movie, evaluateVersions(items, job.movie)));
       })
@@ -2870,8 +2894,52 @@
     autofocus(type);
   }
 
+  // ----- hledání omezené webem (429) -----
+  // Stránka hledání bez kontejneru výsledků = web dotaz odmítl (příliš
+  // mnoho požadavků). Místo prázdné stránky hláška s odpočtem a novým
+  // pokusem (max. BLOCKED_MAX_RETRIES za sebou, pak jen hláška).
+  var BLOCKED_RETRY_S = (window.__PT_SCRAPE__ && window.__PT_SCRAPE__.blockedRetry) || 15;
+  var BLOCKED_MAX_RETRIES = 5;
+  var BLOCKED_KEY = 'pt-search-retries';
+
+  function handleBlockedSearch() {
+    var retries = 0;
+    try { retries = parseInt(sessionStorage.getItem(BLOCKED_KEY), 10) || 0; } catch (e) {}
+    if (document.getElementById('snippet-videoListing-videoListingWrapper')) {
+      try { sessionStorage.removeItem(BLOCKED_KEY); } catch (e) {}
+      return;
+    }
+    if (document.getElementById('pt-blocked')) return;
+    var box = document.createElement('div');
+    box.id = 'pt-blocked';
+    var h = document.createElement('p');
+    h.className = 'pt-blocked-title';
+    h.textContent = 'Příliš mnoho požadavků na prehrajto.cz';
+    var sub = document.createElement('p');
+    sub.className = 'pt-blocked-sub';
+    box.appendChild(h);
+    box.appendChild(sub);
+    (document.querySelector('main') || document.body).appendChild(box);
+    if (retries >= BLOCKED_MAX_RETRIES) {
+      sub.textContent = 'Web teď vyhledávání omezuje. Zkus to prosím za chvíli znovu.';
+      return;
+    }
+    var left = BLOCKED_RETRY_S;
+    var tick = function () {
+      sub.textContent = 'Web teď vyhledávání omezuje – zkusím to znovu za ' + left + ' s.';
+      if (left-- <= 0) {
+        try { sessionStorage.setItem(BLOCKED_KEY, String(retries + 1)); } catch (e) {}
+        location.reload();
+        return;
+      }
+      setTimeout(tick, 1000);
+    };
+    tick();
+  }
+
   function revealPage(type) {
     tidyAccountBar();
+    if (type === 'search') handleBlockedSearch();
     // fokus ještě před odhalením, ať se nezvýrazní až dodatečně
     if (document.querySelector('input.video-search-phrase')) autofocusOnce(type);
     document.body.classList.add('pt-ready');
@@ -2952,7 +3020,11 @@
     if (type === 'favorites') {
       addSwitchButton();
       // návrat z hledání vybraného posteru – otevřít doporučení tam, kde byl
-      var recoPos = readRecoPos();
+      // pozice se obnoví jen při návratu tlačítkem Zpět (z hledání) a hned
+      // se spotřebuje – jinak by každé další načtení oblíbených/sledovaných
+      // vracelo do doporučení
+      var recoPos = isBackNavigation() ? readRecoPos() : null;
+      clearRecoPos();
       if (recoPos && getTmdbKey()) {
         openReco(recoPos);
       } else if (launch && location.pathname.indexOf('/oblibena-videa') === 0) {

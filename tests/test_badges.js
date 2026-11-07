@@ -40,7 +40,7 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   const browser = await chromium.launch({ executablePath: CHROME });
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   // rychlý limiter dotazů (výchozí 8/min by test natahoval na minuty)
-  await ctx.addInitScript(() => { window.__PT_SCRAPE__ = { perMin: 1000, concurrency: 2, pause: 1500 }; });
+  await ctx.addInitScript(() => { window.__PT_SCRAPE__ = { perMin: 1000, concurrency: 2, pause: 1500, zeroRecheck: 1500, blockedRetry: 2 }; });
   await ctx.addInitScript(MOD);
   const page = await ctx.newPage();
   await page.route('https://prehrajto.cz/oblibena-videa/', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: favHtml }));
@@ -138,6 +138,31 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   b = await badgesOf(`m.title === ${JSON.stringify(blocked.title)}`);
   ok('omezená odpověď webu se neuloží ani neukáže jako Nedostupné', queries.includes(blocked.title) && !bEntry && !b.ribbon, JSON.stringify({ bEntry, b }));
 
+  // 2b2. úplně prázdné hledání (omezení webu bez 429) se neuloží hned –
+  //      až druhé prázdné hledání po chvíli znamená „Nedostupné"
+  const zero = await page.evaluate(({ year, used }) => {
+    const cache = JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}');
+    const c = Array.from(document.querySelectorAll('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card'))
+      .find((x) => x.__ptMovie.year && x.__ptMovie.year !== year && !used.includes(x.__ptMovie.title) &&
+        x !== document.activeElement && !cache[x.__ptMovie.year + '|' + x.__ptMovie.title]);
+    return { title: c.__ptMovie.title, year: c.__ptMovie.year };
+  }, { year: YEAR, used: [old.title, blocked.title] });
+  customResults.set(zero.title, []);
+  await focusTitle(zero.title);
+  // limiter může být po testu omezení ještě v pauze – počkat na 1. dotaz
+  for (let i = 0; i < 100 && !queries.includes(zero.title); i++) await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
+  const zKey = zero.year + '|' + zero.title;
+  const z1 = await page.evaluate((k) => (JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}'))[k], zKey);
+  b = await badgesOf(`m.title === ${JSON.stringify(zero.title)}`);
+  ok('první prázdné hledání se neuloží ani neukáže', queries.filter((q) => q === zero.title).length === 1 && !z1 && !b.ribbon,
+    JSON.stringify({ z1, n: queries.filter((q) => q === zero.title).length }));
+  await page.waitForFunction((k) => !!(JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}'))[k], zKey, { timeout: 15000 }).catch(() => {});
+  const z2 = await page.evaluate((k) => (JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}'))[k], zKey);
+  b = await badgesOf(`m.title === ${JSON.stringify(zero.title)}`);
+  ok('druhé prázdné hledání = Nedostupné', queries.filter((q) => q === zero.title).length === 2 && z2 && z2.n === 0 &&
+    b.ribbon && b.ribbon.text === 'Nedostupné', JSON.stringify({ z2, n: queries.filter((q) => q === zero.title).length }));
+
   // 2c. dabing vylučovací metodou: verze bez označení jazyka (Super Mario)
   //     a dabing s rokem ±1 (Mayday) ≠ „Bez dabingu"
   const two = await page.evaluate(({ year, used }) => {
@@ -151,7 +176,11 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   customResults.set(noMark.title, [noMark.title + ' ' + noMark.year + ' 1080p', noMark.title + ' ' + noMark.year + ' CZ tit']);
   customResults.set(yearOff.title, [yearOff.title + ' ' + (+yearOff.year - 1) + ' CZ dabing', yearOff.title + ' ' + yearOff.year + ' CZ titulky']);
   customResults.set(subsOnly.title, [subsOnly.title + ' ' + subsOnly.year + ' CZ tit', subsOnly.title + ' ' + subsOnly.year + ' SK dabing', subsOnly.title + ' ' + subsOnly.year + ' EN']);
-  for (const m of two) { await focusTitle(m.title); await page.waitForTimeout(900); }
+  for (const m of two) {
+    await focusTitle(m.title);
+    await page.waitForFunction((k) => !!(JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}'))[k],
+      m.year + '|' + m.title, { timeout: 15000 }).catch(() => {});
+  }
   const ribbonOf = async (title) => { const x = await badgesOf(`m.title === ${JSON.stringify(title)}`); return x.ribbon ? x.ribbon.text : null; };
   ok('verze bez označení jazyka = může mít dabing (ne „Bez dabingu")', await ribbonOf(noMark.title) === null, noMark.title);
   ok('CZ dabing s rokem o 1 jiným se počítá', await ribbonOf(yearOff.title) === null, yearOff.title);
@@ -303,6 +332,25 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   ok('lajk: žlutý, malý, vpravo nahoře, vlastní ikonka palce', typo.like.color === 'rgb(255, 180, 0)' && typo.like.fs === '14px' &&
     typo.like.dr === 6 && typo.like.dt === 6 && typo.like.icon === 'none' && typo.like.thumb, JSON.stringify(typo.like));
   ok('dislike: červený, vpravo nahoře, palec dolů', typo.dislike.color === 'rgb(216, 35, 42)' && typo.dislike.dr === 6 && typo.dislike.thumb, JSON.stringify(typo.dislike));
+  // hledání omezené webem: hláška místo prázdné stránky + nový pokus
+  blockedTitles.add('Blokovano');
+  await page.goto('https://prehrajto.cz/hledej/Blokovano');
+  await page.waitForTimeout(1800);
+  const notice = await page.evaluate(() => {
+    const el = document.getElementById('pt-blocked');
+    return el ? { text: el.textContent, vis: el.getBoundingClientRect().height > 0 } : null;
+  });
+  ok('omezené hledání: hláška „Příliš mnoho požadavků" s odpočtem', notice && notice.vis &&
+    /Příliš mnoho požadavků/.test(notice.text) && /znovu za \d+ s/.test(notice.text), JSON.stringify(notice));
+  blockedTitles.delete('Blokovano'); // web se mezitím uvolní
+  await page.waitForTimeout(3500);
+  const retried = await page.evaluate(() => ({
+    notice: !!document.getElementById('pt-blocked'),
+    results: document.querySelectorAll('.video-listing .video-wrapper').length,
+    counter: sessionStorage.getItem('pt-search-retries'),
+  }));
+  ok('po odpočtu nový pokus – výsledky, hláška pryč', !retried.notice && retried.results > 0 && !retried.counter, JSON.stringify(retried));
+
   await page.goto('https://prehrajto.cz/hledej/Jinyfilm');
   await page.waitForTimeout(1000);
   ok('ruční hledání (bez kontextu) beze změny', await page.evaluate(() => !document.querySelector('.pt-best')));

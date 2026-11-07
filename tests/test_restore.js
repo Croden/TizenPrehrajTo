@@ -18,7 +18,8 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
 <main><input class="video-search-phrase" type="search"><div id="snippet-videoListing-videoListingWrapper"></div></main></body></html>`;
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: CHROME });
+  // bez bfcache jako na TV (staré Chromium) – Zpět stránku opravdu znovu načte
+  const browser = await chromium.launch({ executablePath: CHROME, args: ['--disable-features=BackForwardCache'] });
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   // rychlý limiter dotazů (výchozí 8/min by test natahoval na minuty)
   await ctx.addInitScript(() => { window.__PT_SCRAPE__ = { perMin: 1000, concurrency: 2, pause: 1500 }; });
@@ -26,6 +27,8 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   const page = await ctx.newPage();
   await page.route('https://prehrajto.cz/oblibena-videa/', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: pageHtml }));
   await page.route('https://prehrajto.cz/hledej/**', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: searchHtml }));
+  // Zpět z hledání (na TV BACK = history.back()) – navigace back_forward
+  const pressBack = () => page.goBack();
   await page.goto('https://prehrajto.cz/oblibena-videa/');
   await page.waitForTimeout(400);
   await page.click('.pt-switch-row .pt-reco-switch');
@@ -54,8 +57,8 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   ok('přesměrováno na hledání', page.url().indexOf('/hledej/') !== -1, page.url());
   ok('pozice v localStorage', await page.evaluate(() => !!localStorage.getItem('tizenprehrajto.recoPos')));
 
-  // "back" = nové načtení oblíbených
-  await page.goto('https://prehrajto.cz/oblibena-videa/');
+  // Zpět z hledání = znovu načtené oblíbené (navigace back_forward)
+  await pressBack();
   await page.waitForSelector('.pt-reco-card', { timeout: 15000 });
   await page.waitForTimeout(2500);
   const restored = await page.evaluate(() => {
@@ -96,7 +99,7 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   }));
   await page.keyboard.press('Enter');
   await page.waitForTimeout(800);
-  await page.goto('https://prehrajto.cz/oblibena-videa/');
+  await pressBack();
   await page.waitForSelector('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card', { timeout: 15000 });
   await page.waitForTimeout(2500);
   const restored2 = await page.evaluate(() => {
@@ -123,6 +126,31 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   await page.goto('https://prehrajto.cz/oblibena-videa/');
   await page.waitForTimeout(1500);
   ok('bez pozice se reco neotevírá', !(await page.evaluate(() => document.body.classList.contains('pt-reco'))));
+
+  // stará pozice bez návratu Zpět (běžné načtení) reco neotevře a smaže se
+  await page.evaluate(() => localStorage.setItem('tizenprehrajto.recoPos', JSON.stringify({ g: 0, r: 1, c: 2, bases: [], t: Date.now() })));
+  await page.goto('https://prehrajto.cz/oblibena-videa/');
+  await page.waitForTimeout(1500);
+  ok('pozice bez Zpět: reco se neotevře', !(await page.evaluate(() => document.body.classList.contains('pt-reco'))));
+  ok('pozice bez Zpět: smazaná', await page.evaluate(() => !localStorage.getItem('tizenprehrajto.recoPos')));
+
+  // po obnovení je pozice spotřebovaná – další přechod na oblíbená už reco
+  // neotevře (dřív to „vracelo zpátky na doporučení")
+  await page.click('.pt-switch-row .pt-reco-switch');
+  await page.waitForSelector('.pt-reco-card', { timeout: 15000 });
+  await page.waitForTimeout(1000);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(800);
+  await pressBack();
+  await page.waitForSelector('.pt-reco-card', { timeout: 15000 });
+  await page.waitForTimeout(2000);
+  ok('Zpět z hledání obnoví reco', await page.evaluate(() => document.body.classList.contains('pt-reco')));
+  ok('obnovená pozice je spotřebovaná', await page.evaluate(() => !localStorage.getItem('tizenprehrajto.recoPos')));
+  await page.goto('https://prehrajto.cz/oblibena-videa/');
+  await page.waitForTimeout(1500);
+  ok('další přechod na oblíbená už reco neotevře', !(await page.evaluate(() => document.body.classList.contains('pt-reco'))));
 
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });
