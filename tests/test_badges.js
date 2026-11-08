@@ -201,6 +201,8 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
     cur.title + ' CZ dabing',
     'Návrat na ' + cur.title + ' CZ dabing',
     (cur.orig || cur.title) + ' ( ' + cur.title + ' ) ' + YEAR + ' FullHD CZ tit',
+    // případ „Buddy": slepené „cztit" = taky jen titulky
+    cur.title + ' (' + YEAR + ') horor Sci-Fi komedie cztit.mp4',
   ]);
   await page.evaluate((k) => {
     const m = JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}');
@@ -216,8 +218,8 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
     cur.year + '|' + cur.title, { timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(100);
   const curEntry = await page.evaluate((k) => JSON.parse(localStorage.getItem('tizenprehrajto.avail5'))[k], cur.year + '|' + cur.title);
-  ok('letošní: dabing jiného roku/bez roku/pokračování se nepočítá → „Bez dabingu"',
-    await ribbonOf(cur.title) === 'Bez dabingu' && curEntry && curEntry.n === 1 && curEntry.d === 0, cur.title + ' ' + JSON.stringify(curEntry));
+  ok('letošní: dabing jiného roku/bez roku/pokračování se nepočítá, „cztit" = titulky → „Bez dabingu"',
+    await ribbonOf(cur.title) === 'Bez dabingu' && curEntry && curEntry.n === 2 && curEntry.d === 0, cur.title + ' ' + JSON.stringify(curEntry));
 
   // 3. trvalá cache: 30 dní stará položka platí, bez fokusu žádný fetch
   await page.evaluate(({ k }) => {

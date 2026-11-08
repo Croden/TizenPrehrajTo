@@ -1883,14 +1883,22 @@
     return e;
   }
 
+  // Normalizovaný název pro rozpoznání jazyka: slepené značky rozdělí
+  // („cztit" → „cz tit", „SKdab" → „sk dab", „CZtitulky", „ENsub"…),
+  // jinak by „Buddy (2026) … cztit.mp4" nevypadalo jako titulky.
+  function langNorm(title) {
+    return normTitle(title).replace(/ (cz|cs|cze|sk|svk|en|eng)(tit|titl|titulky|titulkami|sub|subs|dab|dabing|dub) /g, ' $1 $2 ')
+      .replace(/ (cz|cs|cze|sk|svk|en|eng)(tit|titl|titulky|titulkami|sub|subs|dab|dabing|dub) /g, ' $1 $2 ');
+  }
+
   // Český dabing podle názvu videa: zmínka o dabingu (ne jen slovenském),
   // nebo „CZ" bez titulků („Film 2008 CZ" = česky).
   function hasCzDub(title) {
-    var n = normTitle(title);
+    var n = langNorm(title);
     var dub = / (dab|dabing|dabingem|dabovane|dub|dubbing) /.test(n);
     var cz = / (cz|cs|cze|cesky|czech|cestina) /.test(n);
     var sk = / (sk|svk|slovensky|slovak) /.test(n);
-    var tit = / (tit|titulky|titl|sub|subs|subtitles) /.test(n);
+    var tit = / (tit|titulky|titulkami|titl|sub|subs|subtitles) /.test(n);
     return (dub && (cz || !sk)) || (cz && !tit);
   }
 
@@ -1918,11 +1926,11 @@
   //   titulky bez zmínky o dabingu, jen slovenský dabing, nebo cizí
   //   jazyk (EN) bez CZ.
   function isNoCzDub(title) {
-    var n = normTitle(title);
+    var n = langNorm(title);
     var dub = / (dab|dabing|dabingem|dabovane|dub|dubbing) /.test(n);
     var cz = / (cz|cs|cze|cesky|czech|cestina) /.test(n);
     var sk = / (sk|svk|slovensky|slovak) /.test(n);
-    var tit = / (tit|titulky|titl|sub|subs|subtitles) /.test(n);
+    var tit = / (tit|titulky|titulkami|titl|sub|subs|subtitles) /.test(n);
     var foreign = / (en|eng|english|orig|original) /.test(n);
     if (dub) return sk && !cz;
     return tit || (foreign && !cz);
