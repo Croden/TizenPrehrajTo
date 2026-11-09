@@ -50,10 +50,15 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   const namedTitles = new Set();
   const blockedTitles = new Set(); // web hledání omezil – stránka bez výsledků
   const customResults = new Map(); // titul → seznam názvů výsledků
+  const slowTitles = new Set(); // odpověď hledání zdržená (žlutý puntík)
   const blockedHtml = '<!doctype html><html><body><main><p>Stáhněte si novou mobilní aplikaci</p></main></body></html>';
-  await page.route('https://prehrajto.cz/hledej/**', (r) => {
+  const onSearch = (r, delayed) => {
     const q = decodeURIComponent(r.request().url().split('/hledej/')[1]);
-    queries.push(q);
+    if (!delayed) queries.push(q);
+    if (slowTitles.has(q)) {
+      slowTitles.delete(q);
+      return new Promise((res) => setTimeout(res, 1500)).then(() => onSearch(r, true));
+    }
     if (blockedTitles.has(q)) return r.fulfill({ contentType: 'text/html; charset=utf-8', body: blockedHtml });
     if (customResults.has(q)) {
       return r.fulfill({ contentType: 'text/html; charset=utf-8',
@@ -69,6 +74,15 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
         result('/f', 'Testfilm 2019 CZ Dabing 1080p CAM', '02:05:00', 'like', '40'),
       ]) });
     }
+    if (q === 'Jedenfilm') {
+      // struktura jako na webu: .grid-container je flex řádek a výpis je
+      // jeho položkou (s jedním výsledkem by se smrskl)
+      return r.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><html><head><title>hledej</title></head><body>
+<div class="header"><input class="video-search-phrase" type="search"></div>
+<main><section class="section section--medium"><div class="grid-container" style="display:flex">
+<div class="video-listing" id="snippet-videoListing-videoListingWrapper">${result('/j', 'Jedenfilm 2019 CZ dabing', '01:30:00', 'like', '5')}</div>
+</div></section></main></body></html>` });
+    }
     if (q === 'Jinyfilm') {
       return r.fulfill({ contentType: 'text/html; charset=utf-8', body: searchPage([
         result('/x', 'Jinyfilm 2019 CZ dabing 1080p', '01:30:00', 'like', '5'),
@@ -78,7 +92,8 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
       ? [result('/n1', q + ' CZ dabing 1080p', '01:40:00', 'like', '3')]
       : [result('/t1', q + ' ' + YEAR + ' CZ tit', '01:40:00', 'like', '3'), result('/t2', q + ' ' + YEAR + ' SK titulky', '01:40:00', '', '')];
     return r.fulfill({ contentType: 'text/html; charset=utf-8', body: searchPage(items) });
-  });
+  };
+  await page.route('https://prehrajto.cz/hledej/**', (r) => onSearch(r));
 
   // spuštění → doporučení s bránou
   await page.goto('https://prehrajto.cz/oblibena-videa/');
@@ -264,6 +279,59 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   });
   ok('název a rok pod posterem s 2px paddingem vlevo/vpravo', pad === '2px 2px 2px 2px', pad);
 
+  // 3b. puntík stavu vlevo dole: šedý = nezjištěno, žlutý = hledá se,
+  //     načteno = žádný; obnova při fokusu jen u Nedostupné/Bez dabingu
+  const dotOf = (t) => page.evaluate((t) => {
+    const c = Array.from(document.querySelectorAll('.pt-reco-card')).find((x) => x.__ptMovie.title === t);
+    const d = c.querySelector('.pt-reco-dot');
+    if (!d) return null;
+    const cs = getComputedStyle(d), pr = c.querySelector('.pt-reco-poster').getBoundingClientRect(), r = d.getBoundingClientRect();
+    return { bg: cs.backgroundColor, left: Math.round(r.left - pr.left), bottom: Math.round(pr.bottom - r.bottom), w: Math.round(r.width) };
+  }, t);
+  // stálá řada na šířku – po znovuotevření jsou v ní stejné filmy
+  const fresh = await page.evaluate(({ year, skip }) => {
+    const cache = JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}');
+    const c = Array.from(document.querySelectorAll('.pt-reco-row--wide .pt-reco-card'))
+      .find((x) => x.__ptMovie.year && x.__ptMovie.year !== year && x !== document.activeElement &&
+        x.__ptMovie.title !== skip && !cache[x.__ptMovie.year + '|' + x.__ptMovie.title]);
+    return { title: c.__ptMovie.title, year: c.__ptMovie.year };
+  }, { year: YEAR, skip: blocked.title });
+  let dot = await dotOf(fresh.title);
+  ok('nezjištěný titul: šedý puntík vlevo dole', dot && dot.bg === 'rgb(136, 136, 136)' && dot.left === 8 && dot.bottom === 8 && dot.w === 12, JSON.stringify(dot));
+  slowTitles.add(fresh.title);
+  await focusTitle(fresh.title);
+  for (let i = 0; i < 50 && !queries.includes(fresh.title); i++) await page.waitForTimeout(100);
+  await page.waitForTimeout(200);
+  dot = await dotOf(fresh.title);
+  ok('během hledání žlutý puntík', dot && dot.bg === 'rgb(255, 180, 0)', JSON.stringify(dot));
+  await page.waitForFunction((k) => !!(JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}'))[k],
+    fresh.year + '|' + fresh.title, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(100);
+  ok('po načtení puntík zmizí', await dotOf(fresh.title) === null);
+  ok('titul z cache je bez puntíku', await dotOf(old.title) === null);
+
+  const setEntry = (t, e) => page.evaluate(({ k, e }) => {
+    const m = JSON.parse(localStorage.getItem('tizenprehrajto.avail5'));
+    m[k] = Object.assign({}, e, { t: Date.now() - e.age });
+    delete m[k].age;
+    localStorage.setItem('tizenprehrajto.avail5', JSON.stringify(m));
+  }, { k: t.year + '|' + t.title, e });
+  const focusedFetch = async (t) => {
+    await reopen(); // mod drží cache v paměti – načíst znovu
+    const before = queries.filter((q) => q === t.title).length;
+    await focusTitle(t.title);
+    await page.waitForTimeout(1200);
+    return queries.filter((q) => q === t.title).length > before;
+  };
+  await setEntry(old, { n: 3, d: 2, age: 40 * 864e5 });
+  ok('dostupný s dabingem se při fokusu neobnovuje (ani 40 dní starý)', !(await focusedFetch(old)));
+  await setEntry(fresh, { n: 2, d: 0, age: 60 * 60 * 1000 });
+  ok('„Bez dabingu" starší než 30 min se při fokusu ověří znovu', await focusedFetch(fresh));
+  await setEntry(fresh, { n: 0, d: 0, age: 5 * 60 * 1000 });
+  ok('„Nedostupné" mladší než 30 min se neobnovuje', !(await focusedFetch(fresh)));
+  await setEntry(fresh, { n: 0, d: 0, age: 60 * 60 * 1000 });
+  ok('„Nedostupné" starší než 30 min se při fokusu ověří znovu', await focusedFetch(fresh));
+
   // 4. „Doporučené": trend týdne + hodnocení ≥ 7 + CZ dabing
   const hot = await page.evaluate(({ year }) => {
     const c = Array.from(document.querySelectorAll('.pt-reco-row--wide .pt-reco-card'))
@@ -356,6 +424,14 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   await page.goto('https://prehrajto.cz/hledej/Jinyfilm');
   await page.waitForTimeout(1000);
   ok('ruční hledání (bez kontextu) beze změny', await page.evaluate(() => !document.querySelector('.pt-best')));
+
+  await page.goto('https://prehrajto.cz/hledej/Jedenfilm');
+  await page.waitForTimeout(800);
+  const one = await page.evaluate(() => {
+    const w = document.querySelector('.video-listing > .video-wrapper');
+    return { w: Math.round(w.getBoundingClientRect().width), list: Math.round(document.querySelector('.video-listing').getBoundingClientRect().width) };
+  });
+  ok('jediný výsledek hledání má stejnou šířku karty jako plná stránka (1/5 řádku)', one.list > 1800 && Math.abs(one.w - one.list / 5) <= 1, JSON.stringify(one));
 
   // 6. historie: přehrané video se ukáže na oblíbených v šedém bloku
   const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');

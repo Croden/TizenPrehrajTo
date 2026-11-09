@@ -1,6 +1,6 @@
 // Limiter dotazů na prehrajto (web vrací 429 při ~10/min): max. N dotazů
-// v okně, pauza a opakování po 429, výsledky natrvalo v cache, obnova
-// letošních na pozadí jen při volné frontě, přednost fokusované karty.
+// v okně, pauza a opakování po 429, výsledky natrvalo v cache (na pozadí
+// se uložené neobnovují), přednost fokusované karty.
 // Okno/pauza jsou pro test zkrácené (window.__PT_SCRAPE__).
 // Spouštět z kořene repa: node tests/test_scrape.js
 const { chromium } = require('playwright');
@@ -82,7 +82,7 @@ const searchPage = (q) => `<!doctype html><html><body><div class="video-listing"
     Object.values(JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}')).every((e) => e.n > 0)));
 
   // 4. natrvalo v cache: 3 dny staré letošní výsledky se ukážou hned,
-  //    obnovují se jen na pozadí (low priorita)
+  //    a na pozadí se už neobnovují
   // stálá řada „Nově ke zhlédnutí" – po znovuotevření stejné filmy
   await page.evaluate(() => {
     const m = {};
@@ -107,8 +107,15 @@ const searchPage = (q) => `<!doctype html><html><body><div class="video-listing"
   }, cachedKeys);
   ok('3 dny starý výsledek se ukáže hned z cache', shown.n > 0 && shown.withBadge === shown.n, JSON.stringify(shown) + ' dotazů=' + reqs.length);
 
-  // 5. fokus má přednost před obnovou na pozadí
   await page.waitForTimeout(1500);
+  const refetched = await page.evaluate(({ keys, qs }) => {
+    const cs = Array.from(document.querySelectorAll('.pt-reco-card')).filter((c) => c !== document.activeElement &&
+      keys.includes(c.__ptMovie.year + '|' + c.__ptMovie.title));
+    return cs.map((c) => c.__ptMovie.title).filter((t) => qs.includes(t));
+  }, { keys: cachedKeys, qs: reqs.filter((r) => r.kind === 'search').map((r) => r.q) });
+  ok('uložené výsledky se na pozadí neobnovují', refetched.length === 0, refetched.join(', '));
+
+  // 5. fokus má přednost před frontou na pozadí
   const oldTitle = await page.evaluate((year) => {
     const c = Array.from(document.querySelectorAll('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card'))
       .find((x) => x.__ptMovie.year && x.__ptMovie.year !== year && x !== document.activeElement);
@@ -120,9 +127,9 @@ const searchPage = (q) => `<!doctype html><html><body><div class="video-listing"
   await page.waitForTimeout(CFG.window + 1500);
   // check se zařadí po 300 ms fokusu – první dotaz po tom musí být on
   const nextAfter = reqs.filter((r) => r.kind === 'search' && r.t > tFocus + 200);
-  ok('fokusovaná karta jde před obnovu na pozadí', nextAfter.length && nextAfter[0].q === oldTitle,
+  ok('fokusovaná karta jde před frontu na pozadí', nextAfter.length && nextAfter[0].q === oldTitle,
     oldTitle + ' vs ' + (nextAfter[0] || {}).q);
-  ok('obnova na pozadí běží (stále v limitu)', reqs.filter((r) => r.kind === 'search').length >= 2);
+  ok('chybějící letošní se dohledávají na pozadí (stále v limitu)', reqs.filter((r) => r.kind === 'search').length >= 2);
 
   // 6. výchozí limit podle přihlášení (bez testovacího přepisu):
   //    oblíbená = přihlášený → 20/min (pozadí 16), jinak 5/min

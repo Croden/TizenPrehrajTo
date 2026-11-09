@@ -486,6 +486,15 @@ body.pt-search .video-listing {
   margin: 0 8px !important;
 }
 
+/* ve hledání je .grid-container flex řádek – .video-listing by se
+   smrskl na obsah a při pár výsledcích by karty (20 % šířky) byly menší;
+   takhle má vždy celou šířku */
+body.pt-search .video-listing {
+  -webkit-box-flex: 1;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
 /* obal karty = 1/5 řádku, mezery tvoří jeho padding (16 px mezi kartami);
    vnitřní kontejner webu má vlastní margin 12 px – ten pryč, jinak karta
    přetéká obal */
@@ -975,6 +984,28 @@ a.pt-reco-card--wide img {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+
+/* puntík stavu dostupnosti v levém spodním rohu: šedý = ještě nezjištěno,
+   žlutý = právě se hledá; po načtení zmizí */
+.pt-reco-dot {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.7);
+  box-sizing: border-box;
+}
+
+.pt-reco-dot--missing {
+  background: #888;
+}
+
+.pt-reco-dot--loading {
+  background: #ffb400;
 }
 
 /* štítek („pill") – u levého kraje, vpravo zakulacený, šířka podle textu */

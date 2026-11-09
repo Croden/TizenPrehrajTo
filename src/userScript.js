@@ -1793,7 +1793,7 @@
         var list = scrapeWaiters[kinds[k]];
         if (!list.length) continue;
         // nečinnostní dotazy jen když pozadí nic nechce
-        if (kinds[k] === 'idle' && (scrapeWaiters.bg.length || availQueue.length || availLowQueue.length)) continue;
+        if (kinds[k] === 'idle' && (scrapeWaiters.bg.length || availQueue.length)) continue;
         var w = scrapeWaitFor(kinds[k] === 'user' ? 'user' : 'bg');
         if (w === 0) { kind = kinds[k]; break; }
         if (w < minWait) minWait = w;
@@ -1822,20 +1822,23 @@
   // ----- dostupnost a dabing -----
   // Z výsledků hledání se vyberou použitelné verze filmu (rok/název,
   // délka ≥ 40 min, ne záporné hodnocení) a u nich se pozná český dabing.
-  //   výsledky se ukládají natrvalo a ukazují se hned z cache
+  //   výsledky se ukládají natrvalo (klíč rok|název) a ukazují se hned
+  //     z cache; na pozadí se nic neobnovuje (šetří limit, 429)
   //   letošní filmy: chybějící výsledek → fronta na pozadí hned po
-  //     vykreslení; výsledek starší než den → obnova jen při volné frontě
+  //     vykreslení
   //   starší filmy: zjišťují se jen po AVAIL_DWELL_MS fokusu
-  //   fokus ≥ 300 ms: check na začátek fronty, pokud výsledek chybí nebo
-  //     je starší než 30 min
+  //   fokus ≥ 300 ms: check na začátek fronty, pokud výsledek chybí,
+  //     nebo je „Nedostupné"/„Bez dabingu" a starší než 30 min (dostupný
+  //     s dabingem se už nikdy neobnovuje)
   //   vše jde přes limiter dotazů (viz výše)
+  // Puntík vlevo dole na posteru: šedý = výsledek ještě není, žlutý =
+  // právě se hledá, žádný = načteno.
   // Badge: 0 verzí → páska „Nedostupné" (červená), verze bez CZ dabingu →
   // páska „Bez dabingu" (tmavá, nenápadná), letošní s 1–3 verzemi → „Novinka",
   // trend týdne + hodnocení ≥ 7 + CZ dabing → „Doporučené" (žlutá).
   var AVAIL_FEW = 3;
   var AVAIL_CACHE_KEY = 'tizenprehrajto.avail5'; // v5: nejdřív relevantní verze, pak dabing
-  var AVAIL_STALE_NEW = 24 * 60 * 60 * 1000; // letošní starší než den → obnova na pozadí, když je fronta volná
-  var AVAIL_REFRESH = 30 * 60 * 1000; // fokus ≥ 300 ms obnoví výsledek starší než 30 min
+  var AVAIL_REFRESH = 30 * 60 * 1000; // fokus ≥ 300 ms obnoví nedostupný/bez dabingu starší než 30 min
   var AVAIL_DWELL_MS = 300;
   var AVAIL_MAX_ENTRIES = 4000;
   var AVAIL_RETRY_DELAY = 60 * 1000; // síťová chyba → znovu za minutu
@@ -1848,7 +1851,7 @@
   var availMem = null;
   var availJobs = {}; // key -> {movie, cards}
   var availQueue = []; // klíče čekající na fetch (fokus na začátek)
-  var availLowQueue = []; // obnova starých letošních výsledků – jen když je availQueue prázdná
+  var availRunning = {}; // key -> true, právě běží hledání (žlutý puntík)
   var availWaitingUser = false; // čeká fronta na slot limiteru (fokus)?
   var availWaitingBg = false; // … (pozadí)?
   var availReady = false;
@@ -1991,12 +1994,42 @@
     setCardBadge(card, 'reco', entry.d > 0 && m.vote >= RECO_MIN_VOTE && isTrending(m.id) ? 'Doporučené' : null, 'yellow');
   }
 
-  function applyAvailabilityToAll(m, entry) {
-    var key = availKey(m);
+  function forEachAvailCard(key, fn) {
     var cards = document.querySelectorAll('.pt-reco-card');
     for (var i = 0; i < cards.length; i++) {
-      if (cards[i].__ptMovie && availKey(cards[i].__ptMovie) === key) applyAvailability(cards[i], entry);
+      if (cards[i].__ptMovie && availKey(cards[i].__ptMovie) === key) fn(cards[i]);
     }
+  }
+
+  function applyAvailabilityToAll(m, entry) {
+    forEachAvailCard(availKey(m), function (c) {
+      applyAvailability(c, entry);
+      updateAvailDot(c);
+    });
+  }
+
+  // puntík stavu: 'loading' (žlutý) | 'missing' (šedý) | null (pryč)
+  function updateAvailDot(card) {
+    var m = card.__ptMovie;
+    var poster = card.querySelector('.pt-reco-poster');
+    if (!m || !m.title || !m.year || !poster) return;
+    var state = availRunning[availKey(m)] ? 'loading' : (availCacheGet(m) ? null : 'missing');
+    var dot = poster.querySelector('.pt-reco-dot');
+    if (!state) {
+      if (dot) poster.removeChild(dot);
+      return;
+    }
+    if (!dot) {
+      dot = document.createElement('span');
+      poster.appendChild(dot);
+    }
+    dot.className = 'pt-reco-dot pt-reco-dot--' + state;
+  }
+
+  function setAvailRunning(key, on) {
+    if (on) availRunning[key] = true;
+    else delete availRunning[key];
+    forEachAvailCard(key, updateAvailDot);
   }
 
   function trackAvailability(card) {
@@ -2004,29 +2037,22 @@
     if (!m || !m.title || !m.year) return;
     var cached = availCacheGet(m);
     if (cached) applyAvailability(card, cached);
+    updateAvailDot(card);
     // starší filmy jen po fokusu (refreshAvailability); letošní: chybějící
-    // hned do fronty, den staré jen jako obnova při volné frontě
-    if (m.year !== currentYear()) return;
-    if (!cached) enqueueAvailability(m, 'normal');
-    else if (Date.now() - cached.t >= AVAIL_STALE_NEW) enqueueAvailability(m, 'low');
+    // hned do fronty; uložený výsledek se na pozadí neobnovuje
+    if (m.year === currentYear() && !cached) enqueueAvailability(m, 'normal');
   }
 
-  // prio: 'front' (fokus) | 'normal' | 'low' (obnova, jen při volné frontě)
+  // prio: 'front' (fokus) | 'normal'
   function enqueueAvailability(m, prio) {
     var key = availKey(m);
     var inQ = availQueue.indexOf(key);
-    var inLow = availLowQueue.indexOf(key);
     if (!availJobs[key]) availJobs[key] = { movie: m };
     if (prio === 'front') availJobs[key].user = true; // fokus → slot třídy 'user'
-    if (prio === 'low') {
-      if (inQ === -1 && inLow === -1) availLowQueue.push(key);
-    } else {
-      if (inLow !== -1) availLowQueue.splice(inLow, 1);
-      if (inQ !== -1) availQueue.splice(inQ, 1);
-      if (prio === 'front') availQueue.unshift(key);
-      else if (inQ !== -1) availQueue.splice(inQ, 0, key);
-      else availQueue.push(key);
-    }
+    if (inQ !== -1) availQueue.splice(inQ, 1);
+    if (prio === 'front') availQueue.unshift(key);
+    else if (inQ !== -1) availQueue.splice(inQ, 0, key);
+    else availQueue.push(key);
     if (!availReady && !availStartTimer) {
       // nejdřív ať se načtou postery, pak teprve fetchovat hledání
       availStartTimer = setTimeout(function () {
@@ -2041,15 +2067,17 @@
     var m = card.__ptMovie;
     if (!m) return;
     var key = availKey(m);
-    if (availQueue.indexOf(key) > 0 || availLowQueue.indexOf(key) !== -1) enqueueAvailability(m, 'front');
+    if (availQueue.indexOf(key) > 0) enqueueAvailability(m, 'front');
   }
 
-  // fokus ≥ 300 ms: zkontrolovat, pokud výsledek chybí nebo je starší
+  // fokus ≥ 300 ms: zkontrolovat, pokud výsledek chybí; „Nedostupné"
+  // a „Bez dabingu" se ověří znovu, jsou-li starší než 30 min (mohla
+  // přibýt verze/dabing); dostupný s dabingem už se neobnovuje
   function refreshAvailability(card) {
     var m = card.__ptMovie;
     if (!m || !m.title || !m.year) return;
-    var e = availLoad()[availKey(m)];
-    if (e && Date.now() - e.t < AVAIL_REFRESH) return;
+    var e = availCacheGet(m);
+    if (e && ((e.n > 0 && e.d > 0) || Date.now() - e.t < AVAIL_REFRESH)) return;
     availReady = true; // uživatel čeká na tuhle kartu – nečekat na start
     enqueueAvailability(m, 'front');
   }
@@ -2062,7 +2090,7 @@
       var job = availJobs[availQueue[i]];
       if (!userOnly || (job && job.user)) return availQueue.splice(i, 1)[0];
     }
-    return userOnly ? null : availLowQueue.shift() || null;
+    return null;
   }
 
   function hasAvailWork(user) {
@@ -2070,7 +2098,7 @@
       var job = availJobs[availQueue[i]];
       if (!!(job && job.user) === user) return true;
     }
-    return !user && availLowQueue.length > 0;
+    return false;
   }
 
   function pumpAvailability() {
@@ -2105,6 +2133,7 @@
     var job = availJobs[key];
     var status = 200;
     scrapeLog('hledání', job.movie.title, job.user ? '(fokus)' : '');
+    setAvailRunning(key, true);
     fetchSearchResults(job.movie.title)
       .then(function (items) {
         // Úplně prázdné hledání bývá u známých filmů omezení webu (i bez
@@ -2114,7 +2143,7 @@
           job.zeroChecked = true;
           scrapeLog('prázdné hledání → ověřím znovu', job.movie.title);
           setTimeout(function () {
-            if (availJobs[key] && availQueue.indexOf(key) === -1 && availLowQueue.indexOf(key) === -1) {
+            if (availJobs[key] && availQueue.indexOf(key) === -1) {
               availQueue.push(key);
               pumpAvailability();
             }
@@ -2150,13 +2179,14 @@
           return;
         }
         setTimeout(function () {
-          if (availJobs[key] && availQueue.indexOf(key) === -1 && availLowQueue.indexOf(key) === -1) {
+          if (availJobs[key] && availQueue.indexOf(key) === -1) {
             availQueue.push(key);
             pumpAvailability();
           }
         }, AVAIL_RETRY_DELAY);
       })
       .then(function () {
+        setAvailRunning(key, false);
         done(status);
         pumpAvailability();
       });
