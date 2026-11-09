@@ -2,9 +2,9 @@
 // stránky vloží dist/userScript.js stejně jako TizenBrew na TV (inline
 // <script> na začátku <head>). Otevři v běžném prohlížeči:
 //
-//   http://localhost:3333/__tv   – vycentrovaný box 1920×1080 (TV render;
+//   http://localhost:3003/__tv   – vycentrovaný box 1920×1080 (TV render;
 //                                  jiné rozlišení: /__tv?w=3840&h=2160)
-//   http://localhost:3333/       – stránka přes celé okno
+//   http://localhost:3003/       – stránka přes celé okno
 //
 // Ovládání: šipky + Enter | Esc = Zpět | PgUp/PgDn = Channel ▲/▼
 //           F1 = Play/Pause | F2 = Stop | F3 = Rewind | F4 = FastForward
@@ -18,7 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const PORT = parseInt(process.env.PORT, 10) || 3333;
+const PORT = parseInt(process.env.PORT, 10) || 3003;
 const TARGET = 'prehrajto.cz';
 const MOD = fs.readFileSync(path.join(__dirname, 'dist', 'userScript.js'), 'utf8');
 

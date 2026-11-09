@@ -320,17 +320,18 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
     await reopen(); // mod drží cache v paměti – načíst znovu
     const before = queries.filter((q) => q === t.title).length;
     await focusTitle(t.title);
-    await page.waitForTimeout(1200);
+    // limiter může mít po předchozím testu ještě pauzu – čekat až 4 s
+    for (let i = 0; i < 40 && queries.filter((q) => q === t.title).length === before; i++) await page.waitForTimeout(100);
     return queries.filter((q) => q === t.title).length > before;
   };
   await setEntry(old, { n: 3, d: 2, age: 40 * 864e5 });
   ok('dostupný s dabingem se při fokusu neobnovuje (ani 40 dní starý)', !(await focusedFetch(old)));
-  await setEntry(fresh, { n: 2, d: 0, age: 60 * 60 * 1000 });
-  ok('„Bez dabingu" starší než 30 min se při fokusu ověří znovu', await focusedFetch(fresh));
-  await setEntry(fresh, { n: 0, d: 0, age: 5 * 60 * 1000 });
-  ok('„Nedostupné" mladší než 30 min se neobnovuje', !(await focusedFetch(fresh)));
-  await setEntry(fresh, { n: 0, d: 0, age: 60 * 60 * 1000 });
-  ok('„Nedostupné" starší než 30 min se při fokusu ověří znovu', await focusedFetch(fresh));
+  await setEntry(fresh, { n: 2, d: 0, age: 25 * 60 * 60 * 1000 });
+  ok('„Bez dabingu" starší než den se při fokusu ověří znovu', await focusedFetch(fresh));
+  await setEntry(fresh, { n: 0, d: 0, age: 23 * 60 * 60 * 1000 });
+  ok('„Nedostupné" mladší než den se neobnovuje', !(await focusedFetch(fresh)));
+  await setEntry(fresh, { n: 0, d: 0, age: 25 * 60 * 60 * 1000 });
+  ok('„Nedostupné" starší než den se při fokusu ověří znovu', await focusedFetch(fresh));
 
   // 4. „Doporučené": trend týdne + hodnocení ≥ 7 + CZ dabing
   const hot = await page.evaluate(({ year }) => {

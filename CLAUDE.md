@@ -22,7 +22,7 @@ TizenBrew modul (`packageType: "mods"`) wrappující https://prehrajto.cz/ pro S
 - `src/appStyles.css` — styly modu (tmavý motiv, pozadí `#1a1a1a`).
 - `src/userStyles.css` + `customJs()` — **prostor uživatele, píše si ho sám**. Nenavrhovat mu konkrétní selektory/úpravy, dodávat jen infrastrukturu.
 - `build.js` → `dist/userScript.js` (commituje se!), `npm run build`.
-- `start.js` (`npm start`) — lokální dev proxy na **:3333**: přepisuje prehrajto.cz, stripuje CSP/X-Frame-Options, injektuje build; `/__tv` = iframe 1920×1080 škálovaný do okna. Klávesy v náhledu: Esc=Back, PgUp/PgDn=Channel, F1–F4 media. Restart: `fuser -k 3333/tcp; nohup node start.js > /tmp/proxy.log 2>&1 &`.
+- `start.js` (`npm start`) — lokální dev proxy na **:3003**: přepisuje prehrajto.cz, stripuje CSP/X-Frame-Options, injektuje build; `/__tv` = iframe 1920×1080 škálovaný do okna. Klávesy v náhledu: Esc=Back, PgUp/PgDn=Channel, F1–F4 media. Restart: `fuser -k 3003/tcp; nohup node start.js > /tmp/proxy.log 2>&1 &`.
 - `encrypt-key.js` — vyrábí `src/tmdbKey.enc` z `.env` (spouští jen uživatel svým heslem).
 - `tests/` — Playwright testy (viz níže).
 
@@ -41,7 +41,7 @@ Netflix-style řady filmových posterů z TMDB API (v3, `api_key` v query, `lang
 
 - Web vrací **429 při ~10 dotazech/min**; anonymně navíc občas stránku úplně bez kontejneru výsledků (`snippet-videoListing-videoListingWrapper`) – obojí = omezení, **nikdy neukládat jako „nedostupné"**.
 - Naměřeno 11/2026: **přihlášený ~29 dotazů / klouzavých 60 s**, nepřihlášený ~5; 429 se do limitu nepočítají. Všechny dotazy modu jdou přes limiter (`scrapeAcquire`): přihlášený 20/min (2 souběžně), nepřihlášený 5/min (1); třídy `user` (fokus, celý limit) / `bg` (pozadí, limit − 4 resp. 2) / `idle` (další stránky oblíbených, jen při prázdné frontě). Po 429 se dotaz z okna vyřadí, pauza 10 s (zdvojuje se, max. 60 s). Debug: `localStorage["tizenprehrajto.debug"]="1"`. Měřicí skript: dávka po 1,5 s do prvního 429 v konzoli na prehrajto.cz.
-- Výsledky dostupnosti v localStorage `tizenprehrajto.avail5` (klíč `rok|název`) natrvalo, **na pozadí se nic neobnovuje** (429). Na pozadí se dohledávají jen chybějící letošní; starší jen po fokusu ≥ 300 ms. Fokus znovu ověří jen „Nedostupné“/„Bez dabingu“ starší než 30 min — dostupný s dabingem nikdy. Puntík vlevo dole na posteru: šedý = nezjištěno, žlutý = právě se hledá.
+- Výsledky dostupnosti v localStorage `tizenprehrajto.avail5` (klíč `rok|název`) natrvalo, **na pozadí se nic neobnovuje** (429). Na pozadí se dohledávají jen chybějící letošní; starší jen po fokusu ≥ 300 ms. Fokus znovu ověří jen „Nedostupné“/„Bez dabingu“ starší než den — dostupný s dabingem nikdy. Puntík vlevo dole na posteru: šedý = nezjištěno, žlutý = právě se hledá.
 
 ## Testování
 

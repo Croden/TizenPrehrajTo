@@ -1828,7 +1828,7 @@
   //     vykreslení
   //   starší filmy: zjišťují se jen po AVAIL_DWELL_MS fokusu
   //   fokus ≥ 300 ms: check na začátek fronty, pokud výsledek chybí,
-  //     nebo je „Nedostupné"/„Bez dabingu" a starší než 30 min (dostupný
+  //     nebo je „Nedostupné"/„Bez dabingu" a starší než den (dostupný
   //     s dabingem se už nikdy neobnovuje)
   //   vše jde přes limiter dotazů (viz výše)
   // Puntík vlevo dole na posteru: šedý = výsledek ještě není, žlutý =
@@ -1838,7 +1838,7 @@
   // trend týdne + hodnocení ≥ 7 + CZ dabing → „Doporučené" (žlutá).
   var AVAIL_FEW = 3;
   var AVAIL_CACHE_KEY = 'tizenprehrajto.avail5'; // v5: nejdřív relevantní verze, pak dabing
-  var AVAIL_REFRESH = 30 * 60 * 1000; // fokus ≥ 300 ms obnoví nedostupný/bez dabingu starší než 30 min
+  var AVAIL_REFRESH = 24 * 60 * 60 * 1000; // fokus ≥ 300 ms obnoví nedostupný/bez dabingu starší než den
   var AVAIL_DWELL_MS = 300;
   var AVAIL_MAX_ENTRIES = 4000;
   var AVAIL_RETRY_DELAY = 60 * 1000; // síťová chyba → znovu za minutu
@@ -2071,7 +2071,7 @@
   }
 
   // fokus ≥ 300 ms: zkontrolovat, pokud výsledek chybí; „Nedostupné"
-  // a „Bez dabingu" se ověří znovu, jsou-li starší než 30 min (mohla
+  // a „Bez dabingu" se ověří znovu, jsou-li starší než den (mohla
   // přibýt verze/dabing); dostupný s dabingem už se neobnovuje
   function refreshAvailability(card) {
     var m = card.__ptMovie;
