@@ -146,7 +146,7 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   // (fronta na pozadí), ne až při fokusu
   const SEL = '.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card';
   const yearInfo = () => page.evaluate(({ year, sel }) => {
-    const cs = Array.from(document.querySelectorAll(sel)).filter((c) => {
+    const cs = /* i karty mimo DOM (virtualizace řady) */ Array.from(document.querySelectorAll(sel.replace(/ \.pt-reco-card$/, ' .pt-reco-strip'))).reduce((a, st) => a.concat(st.__ptState ? st.__ptState.cards : []), []).filter((c) => {
       const y = c.querySelector('.pt-reco-year');
       return y && y.textContent === year;
     });
@@ -155,7 +155,7 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
     return { n: cs.length, unique: titles.size, badges };
   }, { year: YEAR, sel: SEL });
   const waitBadges = (text) => page.waitForFunction(({ year, sel, text }) => {
-    const cs = Array.from(document.querySelectorAll(sel)).filter((c) => {
+    const cs = /* i karty mimo DOM (virtualizace řady) */ Array.from(document.querySelectorAll(sel.replace(/ \.pt-reco-card$/, ' .pt-reco-strip'))).reduce((a, st) => a.concat(st.__ptState ? st.__ptState.cards : []), []).filter((c) => {
       const y = c.querySelector('.pt-reco-year');
       return y && y.textContent === year;
     });
@@ -220,7 +220,7 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   await page.waitForTimeout(2500);
   const cacheCheck = await page.evaluate(({ year, sel }) => {
     const m = JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}');
-    const cs = Array.from(document.querySelectorAll(sel)).filter((c) => {
+    const cs = /* i karty mimo DOM (virtualizace řady) */ Array.from(document.querySelectorAll(sel.replace(/ \.pt-reco-card$/, ' .pt-reco-strip'))).reduce((a, st) => a.concat(st.__ptState ? st.__ptState.cards : []), []).filter((c) => {
       const y = c.querySelector('.pt-reco-year');
       return y && y.textContent === year;
     });

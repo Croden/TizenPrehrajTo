@@ -112,11 +112,60 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
     const cs = strip.querySelectorAll('.pt-reco-card');
     cs[cs.length - 1].focus();
   });
-  const before = await page.evaluate(() => document.querySelectorAll('.pt-reco-strip')[0].querySelectorAll('.pt-reco-card').length);
+  // (počítá všechny karty řady – virtualizace drží v DOM jen část)
+  const total = () => page.evaluate(() => document.querySelectorAll('.pt-reco-strip')[0].__ptState.cards.length);
+  const before = await total();
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(2500);
-  const after = await page.evaluate(() => document.querySelectorAll('.pt-reco-strip')[0].querySelectorAll('.pt-reco-card').length);
+  const after = await total();
   ok('infinite loading', after > before, before + ' → ' + after);
+
+  // 9b. virtualizace: daleko doprava → v DOM jen okno karet + spacer,
+  // fokusovaná karta viditelná v řadě; zpět doleva na začátek
+  const stripInfo = () => page.evaluate(() => {
+    const strip = document.querySelectorAll('.pt-reco-strip')[0];
+    const st = strip.__ptState;
+    const el = document.activeElement;
+    const sr = strip.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const sp = strip.querySelector('.pt-reco-spacer');
+    return {
+      dom: strip.querySelectorAll('.pt-reco-card').length, total: st.cards.length,
+      idx: el.__ptIdx, inStrip: el.parentNode === strip,
+      visible: r.left >= sr.left - 1 && r.right <= sr.right + 1,
+      spacer: sp ? Math.round(sp.getBoundingClientRect().width) : 0, lo: st.lo,
+      title: el.querySelector('.pt-reco-title') ? el.querySelector('.pt-reco-title').textContent : '',
+    };
+  });
+  // na začátek řady (první karta v DOM, pak doleva až na index 0)
+  await page.evaluate(() => document.querySelectorAll('.pt-reco-strip')[0].querySelector('.pt-reco-card').focus());
+  for (let i = 0; i < 40 && await page.evaluate(() => document.activeElement.__ptIdx) > 0; i++) {
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(40);
+  }
+  const titles = [];
+  for (let i = 0; i < 70; i++) {
+    titles.push(await page.evaluate(() => document.activeElement.querySelector('.pt-reco-title').textContent));
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(i % 15 === 14 ? 1500 : 60);
+  }
+  await page.waitForTimeout(600);
+  const far = await stripInfo();
+  ok('virtualizace: daleko vpravo jen okno karet v DOM', far.idx === 70 && far.dom <= 33 && far.total > 70 && far.inStrip, JSON.stringify(far));
+  ok('virtualizace: spacer nahrazuje odpojené karty', far.lo > 0 && Math.abs(far.spacer - far.lo * 232) <= 2, JSON.stringify(far));
+  ok('virtualizace: fokusovaná karta viditelná', far.visible, JSON.stringify(far));
+  let backOk = true;
+  for (let i = 69; i >= 0; i--) {
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(40);
+    if (i % 10 === 0) {
+      const t = await page.evaluate(() => document.activeElement.querySelector('.pt-reco-title').textContent);
+      if (t !== titles[i]) backOk = false;
+    }
+  }
+  await page.waitForTimeout(600);
+  const home = await stripInfo();
+  ok('virtualizace: zpět doleva stejné karty až na začátek', backOk && home.idx === 0 && home.visible && home.lo === 0 && home.spacer === 0, JSON.stringify(home));
 
   // 10. Enter na kartě → /hledej/<title>
   const title = await page.evaluate(() => {

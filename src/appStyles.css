@@ -640,6 +640,42 @@ body.pt-video .vjs-text-track-display {
   z-index: 9002;
 }
 
+/* vlastní titulky modu (TV nevykreslí stopy webu) – nad videem, při
+   pauze výš, ať je nepřekryje ovládací lišta */
+#pt-subs {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 70px;
+  z-index: 9003;
+  text-align: center;
+  pointer-events: none;
+}
+
+body.pt-video #pt-subs.pt-subs--on {
+  display: block;
+}
+
+body.pt-video.pt-paused #pt-subs,
+body.pt-video.pt-seeking #pt-subs {
+  bottom: 130px;
+}
+
+.pt-subs-text {
+  display: inline-block;
+  max-width: 80%;
+  padding: 4px 18px;
+  font-size: 46px;
+  line-height: 1.3;
+  font-weight: bold;
+  color: #fff;
+  white-space: pre-line;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  text-shadow: 0 0 4px #000, 0 2px 4px #000;
+}
+
 /* Titulek a hodnocení jako overlay – viditelné jen při pauze */
 body.pt-video h1.title {
   position: fixed;
@@ -713,6 +749,20 @@ body.pt-reco .header {
 
 body.pt-reco #pt-reco-backdrop.pt-visible {
   opacity: 0.3;
+}
+
+/* stejný fade jako na pravém okraji řad i přes samotný backdrop – jinak
+   v mezerách mezi řadami prosvítá obrázek („díra" ve stínu). Backdrop
+   je nad pozadím #1a1a1a, takže na kraji splyne úplně. */
+body.pt-reco #pt-reco-backdrop:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 160px;
+  background: linear-gradient(to right, rgba(26, 26, 26, 0), #1a1a1a);
+  z-index: 1;
 }
 
 /* jednotlivé obrázky se prolínají jako vrstvy uvnitř kontejneru */
@@ -1360,4 +1410,139 @@ a.pt-reco-card--unavailable:hover .pt-reco-poster img {
   margin: 0;
   color: #bbb;
   font-size: 16px;
+}
+
+/* virtualizace řady doporučení – náhrada odpojených karet vlevo */
+.pt-reco-spacer {
+  display: block;
+  flex: none;
+  height: 1px;
+}
+
+/* ===== Hledání – dlaždice s informacemi o filmu (TMDB) ===== */
+/* backdrop filmu za stránkou jako v doporučeních */
+body.pt-movie-bg #pt-reco-backdrop.pt-visible {
+  opacity: 0.3;
+}
+
+body.pt-movie-bg .content,
+body.pt-movie-bg .header,
+body.pt-movie-bg main,
+body.pt-movie-bg .section {
+  background: transparent !important;
+}
+
+/* rodič (.grid-container) je ve hledání flex řádek se zalamováním –
+   dlaždice musí zabrat celý řádek. Okraje lícují s náhledy videí
+   (obal karty má padding 8 px + okraj výpisu 8 px). Poster je absolutně pozicovaný a o kus
+   přesahuje box nahoře i dole (výška se řídí boxem); šířku v poměru
+   2:3 a odsazení textu dopočítá skript (fitMoviePoster). */
+#pt-movie {
+  position: relative;
+  -webkit-box-flex: 0;
+  flex: 0 0 auto;
+  width: calc(100% - 32px);
+  min-height: 262px;
+  margin: 22px 16px 34px;
+  padding: 16px 24px 16px 248px;
+  background: rgba(20, 20, 20, 0.72);
+  border-radius: 10px;
+  color: #fff;
+}
+
+.pt-movie-poster {
+  position: absolute;
+  top: -18px;
+  bottom: -18px;
+  left: 20px;
+  width: 199px;
+  background-color: #333;
+  background-size: cover;
+  background-position: center;
+  border-radius: 8px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7);
+}
+
+.pt-movie-body {
+  min-width: 0;
+}
+
+#pt-movie .pt-movie-title {
+  margin: 0 0 2px;
+  font-size: 36px;
+  line-height: 1.15;
+  font-weight: bold;
+  color: #be1e1e;
+}
+
+.pt-movie-orig {
+  margin: 0 0 6px;
+  font-size: 23px;
+  color: #bbb;
+}
+
+.pt-movie-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 6px 0 8px;
+}
+
+.pt-movie-chip {
+  margin: 0 8px 4px 0;
+  padding: 3px 10px;
+  font-size: 17px;
+  line-height: 1.3;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+}
+
+.pt-movie-chip--rating {
+  color: #000;
+  font-weight: bold;
+  background: #ffb400;
+}
+
+.pt-movie-chip--plain {
+  padding-left: 4px;
+  background: transparent;
+  color: #ddd;
+}
+
+.pt-movie-tagline {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-style: italic;
+  color: #ccc;
+}
+
+.pt-movie-overview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  max-width: 1300px;
+  margin: 0 0 8px;
+  font-size: 19px;
+  line-height: 1.42;
+  color: #eee;
+}
+
+/* režie/herci – vedlejší, zašedlé */
+.pt-movie-credit {
+  margin: 0 0 2px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #777;
+}
+
+.pt-movie-label {
+  color: #5c5c5c;
+}
+
+/* s dlaždicí je nadpis s dotazem zbytečný (dotaz je ve vyhledávání)
+   a ubraná výška drží první řadu výsledků na obrazovce */
+body.pt-movie-info main .section__header {
+  display: none !important;
 }

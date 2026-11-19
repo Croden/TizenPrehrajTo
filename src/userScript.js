@@ -902,6 +902,7 @@
       clearInterval(timer);
 
       player.classList.remove('hidden');
+      initSubtitles(video);
       video.addEventListener('play', function () {
         setPausedClass(false);
         if (!initVideoPage.recorded) {
@@ -997,7 +998,227 @@
     return subs;
   }
 
+  // ----- vlastní titulky -----
+  // Na TV se titulky z webu nikdy nevykreslí: UA Tizenu neobsahuje
+  // „Chrome", video.js ho má za Safari a použije nativní <track>; VTT je
+  // ale na jiné doméně (premiumcdn) a <video> nemá crossorigin → stopa
+  // se nenačte, přestože přepnutí režimu „projde". Titulky proto stáhne
+  // a vykresluje mod sám (fetch – CDN posílá CORS *) do vlastní vrstvy;
+  // stopy webu/přehrávače se drží vypnuté, ať se na PC nezdvojí.
+  var subsDefs = null; // [{src, label}] ze stránky
+  var subsIdx = -1; // zobrazovaná stopa, -1 = vypnuto
+  var subsCues = null; // [{s, e, text}] seřazené podle začátku
+  var subsToken = 0;
+  var subsShown = '';
+
+  function pageSubtitleDefs() {
+    var out = [];
+    var add = function (src, label, def) {
+      if (!src || typeof src !== 'string') return;
+      for (var i = 0; i < out.length; i++) if (out[i].src === src) return;
+      out.push({ src: src, label: label || '', def: !!def });
+    };
+    var list = null;
+    try {
+      // proměnné z inline skriptu stránky (video.js: sources.tracks
+      // {src}, JW Player: tracks {file})
+      if (window.sources && window.sources.tracks) list = window.sources.tracks;
+      else if (window.tracks && window.tracks.length) list = window.tracks;
+    } catch (e) { list = null; }
+    if (list) {
+      for (var i = 0; i < list.length; i++) {
+        var t = list[i] || {};
+        if (t.kind && t.kind !== 'captions' && t.kind !== 'subtitles') continue;
+        add(t.src || t.file, t.label || t.srclang, t['default']);
+      }
+    }
+    var els = document.querySelectorAll('video track');
+    for (var j = 0; j < els.length; j++) {
+      var k = els[j].getAttribute('kind');
+      if (k && k !== 'captions' && k !== 'subtitles') continue;
+      add(els[j].src, els[j].label || els[j].srclang, els[j].hasAttribute('default'));
+    }
+    return out;
+  }
+
+  function parseCueTime(str) {
+    var m = /(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})/.exec(str);
+    if (!m) return NaN;
+    return (parseInt(m[1] || '0', 10) * 3600) + parseInt(m[2], 10) * 60 +
+      parseInt(m[3], 10) + parseInt((m[4] + '00').slice(0, 3), 10) / 1000;
+  }
+
+  // WebVTT i SRT → [{s, e, text}]; text zůstává se značkami, vykreslí
+  // se bezpečně přes renderCueText (jen i/b/u, nic jako HTML)
+  function parseSubtitles(raw) {
+    var blocks = String(raw).replace(/^﻿/, '').replace(/\r\n?/g, '\n').split(/\n{2,}/);
+    var cues = [];
+    for (var i = 0; i < blocks.length; i++) {
+      var lines = blocks[i].split('\n');
+      for (var j = 0; j < lines.length; j++) {
+        if (lines[j].indexOf('-->') === -1) continue;
+        var parts = lines[j].split('-->');
+        var s = parseCueTime(parts[0]);
+        var e = parseCueTime(parts[1]);
+        var text = lines.slice(j + 1).join('\n').replace(/^\s+|\s+$/g, '');
+        if (!isNaN(s) && !isNaN(e) && text) cues.push({ s: s, e: e, text: text });
+        break;
+      }
+    }
+    cues.sort(function (a, b) { return a.s - b.s; });
+    return cues;
+  }
+
+  function renderCueText(el, text) {
+    el.innerHTML = '';
+    var stack = [el];
+    var re = /<\/?([a-z]+)[^>]*>|[^<]+|</gi;
+    var m;
+    while ((m = re.exec(text))) {
+      var tok = m[0];
+      var cur = stack[stack.length - 1];
+      if (m[1]) {
+        var tag = m[1].toLowerCase();
+        if (tag !== 'i' && tag !== 'b' && tag !== 'u') continue; // <c.x>, <v Jméno>, <font>… pryč
+        if (tok.charAt(1) === '/') {
+          if (stack.length > 1 && stack[stack.length - 1].tagName.toLowerCase() === tag) stack.pop();
+        } else {
+          var node = document.createElement(tag);
+          cur.appendChild(node);
+          stack.push(node);
+        }
+      } else {
+        cur.appendChild(document.createTextNode(decodeEntities(tok)));
+      }
+    }
+  }
+
+  function decodeSubtitleBytes(buf) {
+    var bytes = new Uint8Array(buf);
+    var text = '';
+    try { text = new TextDecoder('utf-8').decode(bytes); } catch (e) { text = ''; }
+    // české titulky bývají i ve windows-1250 – v UTF-8 pak plné „�"
+    if (text.indexOf('�') !== -1) {
+      try { text = new TextDecoder('windows-1250').decode(bytes); } catch (e2) {}
+    }
+    return text;
+  }
+
+  function subsLayer() {
+    var el = document.getElementById('pt-subs');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'pt-subs';
+      el.innerHTML = '<span class="pt-subs-text"></span>';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  // stopy webu/video.js vypnout – vykresluje jen náš overlay
+  function muteNativeSubtitles() {
+    var lists = [];
+    var t = getTrackLists().text;
+    if (t) lists.push(t);
+    var v = activeVideo();
+    if (v && v.textTracks && lists.indexOf(v.textTracks) === -1) lists.push(v.textTracks);
+    for (var l = 0; l < lists.length; l++) {
+      var subs = subtitleTracks(lists[l]);
+      for (var k = 0; k < subs.length; k++) {
+        if (subs[k].mode === 'showing') subs[k].mode = 'disabled';
+      }
+    }
+  }
+
+  function updateSubtitles() {
+    // video.js přidává stopy až po loadeddata (výchozí rovnou zapnutou)
+    if (subsDefs && subsDefs.length) muteNativeSubtitles();
+    if (subsIdx < 0) return;
+    var layer = subsLayer();
+    var v = activeVideo();
+    var text = '';
+    if (v && subsCues) {
+      var t = v.currentTime;
+      // binární hledání poslední cue se začátkem <= t, pak zpět přes
+      // překrývající se (víc řádků najednou)
+      var lo = 0;
+      var hi = subsCues.length - 1;
+      var at = -1;
+      while (lo <= hi) {
+        var mid = (lo + hi) >> 1;
+        if (subsCues[mid].s <= t) { at = mid; lo = mid + 1; } else { hi = mid - 1; }
+      }
+      var parts = [];
+      for (var i = at; i >= 0 && i > at - 5; i--) {
+        if (subsCues[i].e > t) parts.unshift(subsCues[i].text);
+      }
+      text = parts.join('\n');
+    }
+    if (text === subsShown) return;
+    subsShown = text;
+    renderCueText(layer.firstChild, text);
+    layer.className = text ? 'pt-subs--on' : '';
+  }
+
+  function setSubtitleTrack(idx) {
+    subsIdx = idx;
+    subsCues = null;
+    subsShown = '';
+    var token = ++subsToken;
+    var layer = subsLayer();
+    renderCueText(layer.firstChild, '');
+    layer.className = '';
+    if (idx < 0) return;
+    muteNativeSubtitles();
+    fetch(subsDefs[idx].src)
+      .then(function (res) {
+        if (!res.ok) throw new Error('subs ' + res.status);
+        return res.arrayBuffer();
+      })
+      .then(function (buf) {
+        if (token !== subsToken) return;
+        subsCues = parseSubtitles(decodeSubtitleBytes(buf));
+        if (!subsCues.length) showOsd('Titulky se nepodařilo načíst');
+        updateSubtitles();
+      })
+      .catch(function () {
+        if (token === subsToken) showOsd('Titulky se nepodařilo načíst');
+      });
+  }
+
+  // stránka videa: najít stopy webu, výchozí zapnout (jako přehrávač na
+  // PC) a navázat vykreslování na čas videa
+  function initSubtitles(video) {
+    if (initSubtitles.done) return;
+    initSubtitles.done = true;
+    subsDefs = pageSubtitleDefs();
+    var update = function () { updateSubtitles(); };
+    video.addEventListener('timeupdate', update);
+    video.addEventListener('seeked', update);
+    // timeupdate chodí jen ~4× za s – mezi tím jemnější krok
+    setInterval(function () { if (!video.paused) update(); }, 200);
+    if (!subsDefs.length) return;
+    var def = 0;
+    for (var i = 0; i < subsDefs.length; i++) if (subsDefs[i].def) { def = i; break; }
+    setSubtitleTrack(def);
+  }
+
   function cycleSubtitles() {
+    if (!subsDefs) subsDefs = pageSubtitleDefs();
+    if (subsDefs.length) {
+      var next = subsIdx + 1; // po poslední stopě se titulky vypnou
+      if (next >= subsDefs.length) next = -1;
+      setSubtitleTrack(next);
+      if (next >= 0) showOsd('Titulky: ' + (subsDefs[next].label || ('stopa ' + (next + 1))));
+      else showOsd('Titulky: vypnuto');
+      return;
+    }
+    cycleNativeSubtitles();
+  }
+
+  // záloha, když stránka adresy titulků neprozradí – přepínání stop
+  // webu/přehrávače
+  function cycleNativeSubtitles() {
     // video.js drží vlastní (emulovaný) seznam stop vedle nativního –
     // režim se musí přepnout v obou, jinak se titulky nevykreslí
     var lists = [];
@@ -1110,7 +1331,7 @@
       localStorage.setItem(RECO_POS_KEY, JSON.stringify({
         g: Array.prototype.indexOf.call(rows.children, groupEl),
         r: Array.prototype.indexOf.call(groupEl.children, rowEl),
-        c: Array.prototype.indexOf.call(strip.children, card),
+        c: typeof card.__ptIdx === 'number' ? card.__ptIdx : Array.prototype.indexOf.call(strip.children, card),
         bases: bases,
         t: Date.now(),
       }));
@@ -1346,7 +1567,16 @@
           seen: {},
           strip: strip,
           focusFirst: !restore && g === 0 && i === 0,
+          // virtualizace: všechny karty řady (i odpojené z DOM), v DOM
+          // jen okno lo..hi kolem fokusu, vlevo nahrazené spacerem
+          cards: [],
+          lo: 0,
+          hi: -1,
+          anchor: 0,
+          stride: 0,
+          spacer: null,
         };
+        strip.__ptState = state;
         recoState.push(state);
         group.states.push(state);
         if (g === 0) loadRecoPage(state);
@@ -1377,11 +1607,12 @@
     if (!group) return;
     if (!group.loaded) group.states[0].focusFirst = true; // fokus až po donačtení karet
     showRecoGroup(idx);
-    var rowsIn = group.el.querySelectorAll('.pt-reco-row');
-    var row = rowsIn[focusLast ? rowsIn.length - 1 : 0];
-    var cardEl = row ? row.querySelector('.pt-reco-card') : null;
+    var state = group.states[focusLast ? group.states.length - 1 : 0];
+    var cardEl = state && state.cards[0];
     if (cardEl) {
+      recoWindow(state, 0);
       focusEl(cardEl);
+      scrollStripToCard(state.strip, cardEl, true);
       scrollWindowToCard(cardEl, !document.body.classList.contains('pt-ready'));
     }
   }
@@ -1398,7 +1629,7 @@
     recoRestoring = true;
     var tries = 0;
     var timer = setInterval(function () {
-      var cards = state.strip.querySelectorAll('.pt-reco-card');
+      var cards = state.cards;
       var found = cards.length > pos.c;
       var exhausted = !state.loading && state.page > 0 &&
         state.base + state.page >= state.totalPages;
@@ -1407,6 +1638,7 @@
         recoRestoring = false;
         var card = found ? cards[pos.c] : cards[cards.length - 1];
         if (!card) return;
+        recoWindow(state, card.__ptIdx);
         // stránka je při obnově ještě schovaná – posun bez animace
         focusEl(card, true);
         scrollStripToCard(state.strip, card, true);
@@ -1463,8 +1695,9 @@
           var m = list[i];
           if (!m.poster_path || (wide && !m.backdrop_path) || state.seen[m.id]) continue;
           state.seen[m.id] = true;
-          state.strip.appendChild(makeRecoCard(m, wide));
+          recoAddCard(state, makeRecoCard(m, wide));
         }
+        recoWindow(state, state.anchor);
         if (state.focusFirst) {
           state.focusFirst = false;
           var first = state.strip.querySelector('.pt-reco-card');
@@ -1485,6 +1718,95 @@
           state.strip.appendChild(err);
         }
       });
+  }
+
+  // ----- virtualizace řady -----
+  // Infinite loading doprava by časem nechal v DOM stovky karet (na TV
+  // znatelně zpomaluje layout i scroll). V DOM je proto jen okno karet
+  // kolem naposledy fokusované (RECO_VIRT_SIDE na každou stranu); karty
+  // vlevo za oknem nahrazuje prázdný spacer stejné šířky, takže pozice
+  // i scrollLeft řady zůstávají. Odpojené karty žijí dál v state.cards
+  // (badge, srdíčko, posluchače). Okno se posouvá až když se fokus
+  // přiblíží k jeho kraji (RECO_VIRT_SLACK) – ne při každém stisku.
+  var RECO_VIRT_SIDE = 16;
+  var RECO_VIRT_SLACK = 6;
+
+  function recoAddCard(state, card) {
+    card.__ptState = state;
+    card.__ptIdx = state.cards.length;
+    state.cards.push(card);
+  }
+
+  function allRecoCards() {
+    var out = [];
+    for (var i = 0; i < recoState.length; i++) out = out.concat(recoState[i].cards);
+    return out;
+  }
+
+  // vzdálenost dvou sousedních karet (šířka + mezera); 0 = nejde změřit
+  // (skrytá skupina) – pak se vlevo nic neodpojuje
+  function recoMeasureStride(state) {
+    for (var i = state.lo; i < state.hi; i++) {
+      var a = state.cards[i];
+      var b = state.cards[i + 1];
+      if (a.parentNode !== state.strip || b.parentNode !== state.strip) continue;
+      var d = b.getBoundingClientRect().left - a.getBoundingClientRect().left;
+      return d > 0 ? d : 0;
+    }
+    return 0;
+  }
+
+  function recoWindow(state, center) {
+    var cards = state.cards;
+    var n = cards.length;
+    if (!n) return;
+    center = Math.max(0, Math.min(n - 1, center || 0));
+    state.anchor = center;
+    if (!state.stride) state.stride = recoMeasureStride(state);
+    var lo = state.stride ? Math.max(0, center - RECO_VIRT_SIDE) : 0;
+    var hi = Math.min(n - 1, center + RECO_VIRT_SIDE);
+    var oldLo = state.lo;
+    var oldHi = state.hi;
+    if (lo === oldLo && hi === oldHi) return;
+    var strip = state.strip;
+    var i;
+    for (i = oldLo; i <= oldHi; i++) {
+      if ((i < lo || i > hi) && cards[i].parentNode === strip) strip.removeChild(cards[i]);
+    }
+    if (oldHi < oldLo || oldHi < lo || oldLo > hi) {
+      for (i = lo; i <= hi; i++) strip.appendChild(cards[i]);
+    } else {
+      var first = cards[Math.max(lo, oldLo)];
+      for (i = lo; i < oldLo; i++) strip.insertBefore(cards[i], first);
+      for (i = oldHi + 1; i <= hi; i++) strip.appendChild(cards[i]);
+    }
+    state.lo = lo;
+    state.hi = hi;
+    if (lo > 0 && !state.spacer) {
+      state.spacer = document.createElement('span');
+      state.spacer.className = 'pt-reco-spacer';
+    }
+    if (state.spacer) {
+      state.spacer.style.width = (lo * state.stride) + 'px';
+      if (state.spacer.parentNode !== strip || strip.firstChild !== state.spacer) {
+        strip.insertBefore(state.spacer, strip.firstChild);
+      }
+    }
+  }
+
+  // fokus na kartě: posunout okno, když se blíží k jeho kraji
+  function recoKeepWindow(card) {
+    var state = card.__ptState;
+    if (!state) return;
+    var idx = card.__ptIdx;
+    var n = state.cards.length;
+    if ((state.lo > 0 && idx - state.lo < RECO_VIRT_SLACK) ||
+        (state.hi < n - 1 && state.hi - idx < RECO_VIRT_SLACK) ||
+        idx < state.lo || idx > state.hi) {
+      recoWindow(state, idx);
+    } else {
+      state.anchor = idx;
+    }
   }
 
   function makeRecoCard(movie, wide) {
@@ -1536,6 +1858,7 @@
       ? 'https://image.tmdb.org/t/p/w1280' + movie.backdrop_path
       : 'https://image.tmdb.org/t/p/w780' + movie.poster_path;
     card.addEventListener('focus', function () {
+      recoKeepWindow(card);
       showRecoBackdrop(backdropUrl);
       prioritizeAvailability(card);
       // po 300 ms na kartě (ne při rychlém projíždění) čerstvý check
@@ -1995,7 +2318,8 @@
   }
 
   function forEachAvailCard(key, fn) {
-    var cards = document.querySelectorAll('.pt-reco-card');
+    // i karty odpojené virtualizací řady
+    var cards = allRecoCards();
     for (var i = 0; i < cards.length; i++) {
       if (cards[i].__ptMovie && availKey(cards[i].__ptMovie) === key) fn(cards[i]);
     }
@@ -2227,7 +2551,7 @@
         trendingIds = { ids: ids, t: Date.now() };
         try { localStorage.setItem(TRENDING_KEY, JSON.stringify(trendingIds)); } catch (e) {}
         // přepočítat „Doporučené" u karet s už známou dostupností
-        var cards = document.querySelectorAll('.pt-reco-card');
+        var cards = allRecoCards();
         for (var k = 0; k < cards.length; k++) {
           var m = cards[k].__ptMovie;
           var e = m && availCacheGet(m);
@@ -2291,7 +2615,7 @@
   }
 
   function markAllFavoriteCards() {
-    var cards = document.querySelectorAll('.pt-reco-card');
+    var cards = allRecoCards();
     for (var i = 0; i < cards.length; i++) markFavoriteCard(cards[i]);
   }
 
@@ -2454,7 +2778,7 @@
     if (!m) return;
     try {
       sessionStorage.setItem(SEARCH_CTX_KEY, JSON.stringify({
-        title: m.title, orig: m.orig, year: m.year, t: Date.now(),
+        id: m.id, title: m.title, orig: m.orig, year: m.year, t: Date.now(),
       }));
     } catch (e) {}
   }
@@ -2507,6 +2831,194 @@
     for (var k = 0; k < ids.length; k++) ids[k].removeAttribute('id');
     listing.insertBefore(clone, listing.firstChild);
     return true;
+  }
+
+  // ----- info o filmu na stránce hledání -----
+  // Mezi vyhledáváním a výsledky dlaždice z TMDB: poster na výšku,
+  // název, hodnocení, rok, délka, žánry, popis, režie a herci + velký
+  // backdrop za stránkou (jako v doporučeních). Z posteru doporučení se
+  // zná přímo TMDB id; při ručním hledání se dotaz očistí (rok, „cz
+  // dabing", kvalita…) a bere se jen film se stejným názvem – obecné
+  // dotazy („pohádky") tak dlaždici nemají. Nenalezeno = nic se neukáže.
+  var movieInfoState = 0; // 0 = nezačato, 1 = běží, 2 = hotovo
+  var MOVIE_QUERY_NOISE = /(^| )(cz|sk|en|eng|dabing|dab|titulky|tit|cztit|sktit|czdab|skdab|cesky|ceske|cele|cely|film|1080p|720p|2160p|480p|4k|uhd|fhd|hd|hdrip|webrip|webdl|web|bluray|brrip|dvdrip|x264|x265|h264|hevc)(?= |$)/g;
+
+  function tmdbGet(path, params) {
+    var url = 'https://api.themoviedb.org/3' + path +
+      '?api_key=' + encodeURIComponent(getTmdbKey() || '') + '&language=cs-CZ' + (params || '');
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('TMDB ' + res.status);
+      return res.json();
+    });
+  }
+
+  function searchPhrase() {
+    try {
+      return decodeURIComponent(location.pathname.replace(/^\/hledej\//, '')).replace(/\/$/, '');
+    } catch (e) { return ''; }
+  }
+
+  // „Shrek 2 (2004) CZ dabing 1080p" → {title: 'shrek 2', year: '2004'}
+  function cleanMovieQuery(q) {
+    var s = normTitle(q);
+    var year = null;
+    var ym = / (19\d{2}|20\d{2}) /.exec(s);
+    if (ym && s.replace(ym[0], ' ').replace(/\s+/g, '') !== '') {
+      year = ym[1];
+      s = s.replace(ym[0], ' ');
+    }
+    s = s.replace(MOVIE_QUERY_NOISE, ' ').replace(MOVIE_QUERY_NOISE, ' ');
+    return { title: s.replace(/\s+/g, ' ').replace(/^ | $/g, ''), year: year };
+  }
+
+  function findSearchMovieId() {
+    var ctx = readSearchContext();
+    if (ctx && ctx.id) return Promise.resolve(ctx.id);
+    var q = cleanMovieQuery(ctx ? ctx.title : searchPhrase());
+    if (!q.title) return Promise.resolve(null);
+    var year = (ctx && ctx.year) || q.year;
+    return tmdbGet('/search/movie', '&include_adult=false&query=' + encodeURIComponent(q.title) +
+      (year ? '&primary_release_year=' + year : ''))
+      .then(function (data) {
+        var want = normTitle(q.title);
+        var list = data.results || [];
+        var best = null;
+        for (var i = 0; i < list.length; i++) {
+          var m = list[i];
+          if (normTitle(m.title) !== want && normTitle(m.original_title) !== want) continue;
+          if (!best || (m.vote_count || 0) > (best.vote_count || 0)) best = m;
+        }
+        return best ? best.id : null;
+      });
+  }
+
+  function formatRuntime(min) {
+    if (!min) return '';
+    var h = Math.floor(min / 60);
+    var m = min % 60;
+    return (h ? h + ' h ' : '') + (m ? m + ' min' : '');
+  }
+
+  function infoEl(tag, cls, text) {
+    var el = document.createElement(tag);
+    el.className = cls;
+    if (text) el.textContent = text;
+    return el;
+  }
+
+  function renderMovieInfo(d) {
+    if (document.getElementById('pt-movie')) return;
+    var title = d.title || d.original_title || '';
+    if (!title) return;
+    var box = infoEl('div', '');
+    box.id = 'pt-movie';
+    var poster = null;
+    if (d.poster_path) {
+      // pozadí místo <img>: výška se řídí boxem (přesah nahoře i dole),
+      // šířka se dopočítá (fitMoviePoster)
+      poster = infoEl('div', 'pt-movie-poster');
+      poster.style.backgroundImage = 'url("https://image.tmdb.org/t/p/w342' + d.poster_path + '")';
+      box.appendChild(poster);
+    }
+    var body = infoEl('div', 'pt-movie-body');
+    var h = infoEl('h2', 'pt-movie-title', title);
+    body.appendChild(h);
+    if (d.original_title && normTitle(d.original_title) !== normTitle(title)) {
+      body.appendChild(infoEl('p', 'pt-movie-orig', d.original_title));
+    }
+    var meta = infoEl('div', 'pt-movie-meta');
+    if (typeof d.vote_average === 'number' && d.vote_average > 0) {
+      meta.appendChild(infoEl('span', 'pt-movie-chip pt-movie-chip--rating', '\u2605 ' + d.vote_average.toFixed(1)));
+    }
+    var year = (d.release_date || '').slice(0, 4);
+    if (year) meta.appendChild(infoEl('span', 'pt-movie-chip', year));
+    var rt = formatRuntime(d.runtime);
+    if (rt) meta.appendChild(infoEl('span', 'pt-movie-chip', rt));
+    var genres = [];
+    for (var g = 0; g < (d.genres || []).length; g++) genres.push(d.genres[g].name);
+    if (genres.length) meta.appendChild(infoEl('span', 'pt-movie-chip pt-movie-chip--plain', genres.join(', ')));
+    if (meta.firstChild) body.appendChild(meta);
+    if (d.tagline) body.appendChild(infoEl('p', 'pt-movie-tagline', d.tagline));
+    if (d.overview) body.appendChild(infoEl('p', 'pt-movie-overview', d.overview));
+    var credits = d.credits || {};
+    var directors = [];
+    var crew = credits.crew || [];
+    for (var c = 0; c < crew.length && directors.length < 2; c++) {
+      if (crew[c].job === 'Director') directors.push(crew[c].name);
+    }
+    var cast = [];
+    var cl = credits.cast || [];
+    for (var a = 0; a < cl.length && cast.length < 6; a++) cast.push(cl[a].name);
+    var addCredit = function (label, names) {
+      if (!names.length) return;
+      var p = infoEl('p', 'pt-movie-credit');
+      p.appendChild(infoEl('span', 'pt-movie-label', label + ' '));
+      p.appendChild(document.createTextNode(names.join(', ')));
+      body.appendChild(p);
+    };
+    addCredit('Režie:', directors);
+    addCredit('Hrají:', cast);
+    box.appendChild(body);
+    // mezi vyhledávání a výsledky: před nadpis sekce (Filtry), jinak
+    // před výpis
+    var anchor = document.querySelector('main .section__header') ||
+      document.getElementById('snippet-videoListing-filterBar') ||
+      document.getElementById('snippet-videoListing-videoListingWrapper');
+    document.body.classList.add('pt-movie-info');
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(box, anchor);
+    } else {
+      var main = document.querySelector('main') || document.body;
+      main.insertBefore(box, main.firstChild);
+    }
+    if (poster) {
+      fitMoviePoster(box, poster);
+      // písmo webu se může dočíst později a změnit výšku textu
+      setTimeout(function () { fitMoviePoster(box, poster); }, 600);
+      window.addEventListener('load', function () { fitMoviePoster(box, poster); });
+    }
+    if (d.backdrop_path || d.poster_path) {
+      document.body.classList.add('pt-movie-bg');
+      showRecoBackdrop(d.backdrop_path
+        ? 'https://image.tmdb.org/t/p/w1280' + d.backdrop_path
+        : 'https://image.tmdb.org/t/p/w780' + d.poster_path);
+    }
+  }
+
+  // Poster přesahuje box o MOVIE_POSTER_OVER nahoře i dole, výška se
+  // tedy řídí boxem. Šířka = výška × 2/3 (postery TMDB jsou 2:3), aby se
+  // obrázek neořezával; text dostane odsazení podle šířky posteru. Širší
+  // poster může text zalomit a box zvýšit – proto pár kol do ustálení.
+  // (aspect-ratio stará platforma neumí)
+  var MOVIE_POSTER_OVER = 18;
+  var MOVIE_POSTER_LEFT = 20;
+  var MOVIE_POSTER_GAP = 30;
+
+  function fitMoviePoster(box, poster) {
+    for (var i = 0; i < 4; i++) {
+      var h = box.offsetHeight + 2 * MOVIE_POSTER_OVER;
+      var w = Math.round(h * 2 / 3);
+      if (!h || poster.offsetWidth === w) return;
+      poster.style.width = w + 'px';
+      box.style.paddingLeft = (MOVIE_POSTER_LEFT + w + MOVIE_POSTER_GAP) + 'px';
+    }
+  }
+
+  // krok pro layoutSettled: true = vyřešeno (dlaždice vložená / žádná)
+  function movieInfoStep() {
+    if (movieInfoState === 2) return true;
+    if (movieInfoState === 1) return false;
+    if (!getTmdbKey()) { movieInfoState = 2; return true; }
+    movieInfoState = 1;
+    findSearchMovieId()
+      .then(function (id) {
+        if (!id) return null;
+        return tmdbGet('/movie/' + id, '&append_to_response=credits');
+      })
+      .then(function (d) { if (d) renderMovieInfo(d); })
+      .catch(function () {})
+      .then(function () { movieInfoState = 2; });
+    return false;
   }
 
   // ----- historie sledování -----
@@ -2630,20 +3142,16 @@
 
   function recoNavHorizontal(card, dir) {
     var strip = card.parentElement;
-    var next = dir > 0 ? card.nextElementSibling : card.previousElementSibling;
-    if (next && next.classList && next.classList.contains('pt-reco-card')) {
+    var state = card.__ptState || recoStateForStrip(strip);
+    if (!state) return;
+    var next = state.cards[card.__ptIdx + dir] || null;
+    if (next) {
+      recoKeepWindow(next); // soused musí být v DOM ještě před fokusem
       focusEl(next);
       scrollStripToCard(strip, next);
     }
     // infinite loading: blížíme se konci řady -> přitáhnout další stránku
-    if (dir > 0) {
-      var state = recoStateForStrip(strip);
-      if (state) {
-        var cards = strip.children;
-        var idx = Array.prototype.indexOf.call(cards, next || card);
-        if (cards.length - idx <= 6) loadRecoPage(state);
-      }
-    }
+    if (dir > 0 && state.cards.length - (next || card).__ptIdx <= 6) loadRecoPage(state);
   }
 
   function recoNavVertical(card, dir) {
@@ -2912,9 +3420,10 @@
     }
     if (type === 'search') {
       var picked = injectBestPick();
+      var info = movieInfoStep();
       placeFavorites();
       alignPagination();
-      return !!input && picked;
+      return !!input && picked && info;
     }
     if (type === 'home') {
       alignPremiumToSearch();
