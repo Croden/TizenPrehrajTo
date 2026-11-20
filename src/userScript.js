@@ -35,6 +35,18 @@
     CHANNEL_DOWN: 428,
   };
 
+  // LG webOS (aplikace z .ipk, viz webos/): jiné kódy kláves ovladače.
+  // Zpět = 461, Channel ▲/▼ = 33/34 (na PC PageUp/PageDown – proto jen
+  // na webOS). Mediální klávesy mají stejné kódy jako na Tizenu.
+  var IS_WEBOS = !!window.PalmSystem || /Web0S|webOS/.test(navigator.userAgent || '');
+  var WEBOS_KEYS = { 461: KEY.BACK, 33: KEY.CHANNEL_UP, 34: KEY.CHANNEL_DOWN };
+
+  function keyOf(e) {
+    var k = e.keyCode;
+    if (IS_WEBOS && WEBOS_KEYS[k]) return WEBOS_KEYS[k];
+    return k;
+  }
+
   var SEEK_STEP_SECONDS = 10;
 
   // ------------------------------------------------------------------
@@ -132,6 +144,12 @@
 
   function exitApp() {
     try {
+      if (IS_WEBOS) {
+        // webOS: aplikace se zavře zavřením okna (Zpět je vypnuté pro
+        // systém – disableBackHistoryAPI v appinfo.json)
+        window.close();
+        return;
+      }
       window.tizen.application.getCurrentApplication().exit();
     } catch (e) {
       try { window.close(); } catch (e2) { /* nic víc udělat nejde */ }
@@ -3396,7 +3414,8 @@
     var video = activeVideo();
     var dialog = openDialog();
 
-    switch (e.keyCode) {
+    var code = keyOf(e);
+    switch (code) {
       case KEY.BACK:
         e.preventDefault();
         e.stopPropagation();
@@ -3436,7 +3455,7 @@
         if (document.activeElement && document.activeElement.classList &&
             document.activeElement.classList.contains('pt-suggest-item')) {
           var item = document.activeElement;
-          if (e.keyCode === KEY.DOWN) {
+          if (code === KEY.DOWN) {
             if (item.nextElementSibling) focusEl(item.nextElementSibling);
           } else if (item.previousElementSibling) {
             focusEl(item.previousElementSibling);
@@ -3448,24 +3467,24 @@
         }
         if (document.activeElement && document.activeElement.classList &&
             document.activeElement.classList.contains('pt-reco-card')) {
-          recoNavVertical(document.activeElement, e.keyCode === KEY.DOWN ? 1 : -1);
+          recoNavVertical(document.activeElement, code === KEY.DOWN ? 1 : -1);
           return;
         }
         // šipka dolů ve vyhledávání otevře našeptávač (pokud web nabízí)
-        if (e.keyCode === KEY.DOWN &&
+        if (code === KEY.DOWN &&
             document.activeElement && document.activeElement.classList &&
             document.activeElement.classList.contains('video-search-phrase') &&
             openSuggestOverlay()) {
           return;
         }
-        moveFocusRow(e.keyCode === KEY.DOWN ? 1 : -1);
+        moveFocusRow(code === KEY.DOWN ? 1 : -1);
         return;
 
       case KEY.LEFT:
       case KEY.RIGHT:
         if (type === 'video' && !dialog) {
           e.preventDefault();
-          seek(e.keyCode === KEY.RIGHT ? SEEK_STEP_SECONDS : -SEEK_STEP_SECONDS);
+          seek(code === KEY.RIGHT ? SEEK_STEP_SECONDS : -SEEK_STEP_SECONDS);
           return;
         }
         // v otevřeném našeptávači doleva/doprava nic nedělá
@@ -3479,14 +3498,14 @@
             document.activeElement.classList.contains('pt-reco-card')) {
           e.preventDefault();
           e.stopPropagation();
-          recoNavHorizontal(document.activeElement, e.keyCode === KEY.RIGHT ? 1 : -1);
+          recoNavHorizontal(document.activeElement, code === KEY.RIGHT ? 1 : -1);
           return;
         }
         // v gridu výsledků posouvá fokus i doleva/doprava; v inputu nechat kurzor
         if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
           e.preventDefault();
           e.stopPropagation();
-          moveFocus(e.keyCode === KEY.RIGHT ? 1 : -1);
+          moveFocus(code === KEY.RIGHT ? 1 : -1);
         }
         return;
 

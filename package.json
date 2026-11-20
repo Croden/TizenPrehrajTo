@@ -1,7 +1,7 @@
 {
   "name": "tizenprehrajto",
   "appName": "TizenPrehrajTo",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "description": "TizenBrew mod: prehrajto.cz wrapper s vlastním CSS/JS pro Samsung TV",
   "packageType": "mods",
   "websiteURL": "https://prehrajto.cz/oblibena-videa/",
@@ -19,10 +19,12 @@
   "scripts": {
     "start": "node build.js && node start.js",
     "build": "node build.js",
+    "build:webos": "node build.js && node build-webos.js",
     "purge": "curl -s https://purge.jsdelivr.net/gh/Croden/TizenPrehrajTo@main/package.json && curl -s https://purge.jsdelivr.net/gh/Croden/TizenPrehrajTo@main/dist/userScript.js && echo"
   },
   "license": "MIT",
   "devDependencies": {
+    "@webos-tools/cli": "^3.2.6",
     "playwright": "^1.65.0"
   }
 }

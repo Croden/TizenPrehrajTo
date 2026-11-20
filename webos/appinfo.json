@@ -1,0 +1,13 @@
+{
+  "id": "com.croden.prehrajto",
+  "version": "0.0.0",
+  "vendor": "Croden",
+  "type": "web",
+  "main": "index.html",
+  "title": "PrehrajTo",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#1a1a1a",
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
+}

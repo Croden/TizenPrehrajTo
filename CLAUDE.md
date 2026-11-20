@@ -2,7 +2,7 @@
 
 ## Co to je
 
-TizenBrew modul (`packageType: "mods"`) wrappující https://prehrajto.cz/ pro Samsung Neo QLED QE100QN80F (Tizen) s nainstalovaným TizenBrew + TizenBrewInstaller. Mod = injektovaný JS/CSS do webu na TV. Uživatel má smart ovladač (šipky, Enter, Back, media klávesy) — barevná tlačítka nejsou potřeba.
+TizenBrew modul (`packageType: "mods"`) wrappující https://prehrajto.cz/ pro Samsung Neo QLED QE100QN80F (Tizen) s nainstalovaným TizenBrew + TizenBrewInstaller. Mod = injektovaný JS/CSS do webu na TV. Alternativně **LG webOS** aplikace `prehrajto-lg.ipk` (viz níže) se stejným modem. Uživatel má smart ovladač (šipky, Enter, Back, media klávesy) — barevná tlačítka nejsou potřeba.
 
 **Komunikace vždy česky.**
 
@@ -25,6 +25,15 @@ TizenBrew modul (`packageType: "mods"`) wrappující https://prehrajto.cz/ pro S
 - `start.js` (`npm start`) — lokální dev proxy na **:3003**: přepisuje prehrajto.cz, stripuje CSP/X-Frame-Options, injektuje build; `/__tv` = iframe 1920×1080 škálovaný do okna. Klávesy v náhledu: Esc=Back, PgUp/PgDn=Channel, F1–F4 media. Restart: `fuser -k 3003/tcp; nohup node start.js > /tmp/proxy.log 2>&1 &`.
 - `encrypt-key.js` — vyrábí `src/tmdbKey.enc` z `.env` (spouští jen uživatel svým heslem).
 - `tests/` — Playwright testy (viz níže).
+- `webos/` + `build-webos.js` (`npm run build:webos`) → `prehrajto-lg.ipk` v kořeni (**commituje se**, odkaz z README). Viz sekce LG webOS.
+
+## LG webOS (od v1.18.0)
+
+- Princip (jako webosbrew/youtube-webos): `webos/index.html` jen přesměruje na `https://prehrajto.cz/oblibena-videa/`, webOS do každé stránky aplikace sám vloží `webOSUserScripts/userScript.js` = `webos/loader.js` s přibaleným `dist/userScript.js`.
+- Zavaděč spustí novější z: přibalená verze / verze z CDN v localStorage `tizenprehrajto.webosMod` ({v, code}); jednou za spuštění (sessionStorage) na pozadí zkontroluje `package.json` na jsDelivr a novější `dist/userScript.js` uloží (po kontrole syntaxe) → projeví se při **dalším** spuštění. Release přes CDN tedy aktualizuje i LG; `.ipk` se přebuildí při každém release (čerstvá přibalená verze).
+- `webos/appinfo.json`: id `com.croden.prehrajto`, `disableBackHistoryAPI: true` (Zpět řeší mod), verze se doplní z package.json. Balí oficiální `ares-package` (`@webos-tools/cli`, devDependency) s `-n` (bez minifikace). Ikony: `node webos/make-icons.js`.
+- Klávesy LG: Zpět 461, Channel ▲/▼ 33/34 (na PC PageUp/PageDown → mapuje se **jen** na webOS, `IS_WEBOS` = `window.PalmSystem` / UA „Web0S"), media stejné jako Tizen. V `onKeyDown` vždy `keyOf(e)`, ne `e.keyCode`. Ukončení na webOS `window.close()`.
+- Na skutečné LG TV netestováno – testuje uživatel; v Playwrightu se webOS simuluje `window.PalmSystem = {}` (`test_webos`).
 
 ## TMDB klíč — bezpečnost
 
@@ -62,7 +71,7 @@ Stopy webu se na TV nevykreslí (UA Tizenu nemá „Chrome" → video.js použij
 ## Testování
 
 - **Na TV testovat nejde** — testuje uživatel a dává feedback. Před vydáním vždy ověřit Playwright testy + případně náhledem přes proxy.
-- Testy (spouštět **z kořene repa**, potřebují `.env` a build v `dist/`): `test_reco` (25 – vč. virtualizace řady a fade vpravo), `test_restore` (20, bez bfcache – Zpět = `page.goBack()`), `test_scroll` (6), `test_ui` (34 – načítání, hlavička, skeleton, řada na šířku, badge dostupnosti, srdíčko, plynulý scroll, Filtry), `test_launch` (12 – start do doporučení, fokus na 1. položku, redirect `/`), `test_badges` (48 – puntík stavu, obnova při fokusu, šířka karet ve hledání s 1 výsledkem, dabing vylučovací metodou, prázdné hledání se ověřuje 2×, hláška při omezeném hledání, starší filmy po fokusu, Doporučené, nejlepší verze v hledání, historie, typografie karet), `test_scrape` (9 – limiter, 429, limit podle přihlášení), `test_movie` (24 – dlaždice filmu v hledání, backdrop na oblíbených/sledovaných vč. seriálů a „zašuměných" názvů, střídání náhledů; `SHOT=<adresář>` uloží screenshoty), `test_subs` (13 – vlastní titulky). Používají `executablePath: '/usr/bin/google-chrome'` a mock HTML stránek prehrajto (route intercept). Limiter dotazů se v testech zrychluje přes `window.__PT_SCRAPE__` (init script před modem).
+- Testy (spouštět **z kořene repa**, potřebují `.env` a build v `dist/`): `test_reco` (25 – vč. virtualizace řady a fade vpravo), `test_restore` (20, bez bfcache – Zpět = `page.goBack()`), `test_scroll` (6), `test_ui` (34 – načítání, hlavička, skeleton, řada na šířku, badge dostupnosti, srdíčko, plynulý scroll, Filtry), `test_launch` (12 – start do doporučení, fokus na 1. položku, redirect `/`), `test_badges` (48 – puntík stavu, obnova při fokusu, šířka karet ve hledání s 1 výsledkem, dabing vylučovací metodou, prázdné hledání se ověřuje 2×, hláška při omezeném hledání, starší filmy po fokusu, Doporučené, nejlepší verze v hledání, historie, typografie karet), `test_scrape` (9 – limiter, 429, limit podle přihlášení), `test_movie` (25 – dlaždice filmu v hledání, backdrop na oblíbených/sledovaných vč. seriálů a „zašuměných" názvů, střídání náhledů; `SHOT=<adresář>` uloží screenshoty), `test_subs` (13 – vlastní titulky), `test_webos` (13 – zavaděč LG, klávesy LG; potřebuje `npm run build:webos`). Používají `executablePath: '/usr/bin/google-chrome'` a mock HTML stránek prehrajto (route intercept). Limiter dotazů se v testech zrychluje přes `window.__PT_SCRAPE__` (init script před modem).
 - `test_scroll` simuluje TV vypnutím `scrollIntoView` — tak se chytají chyby staré platformy.
 - Výstup testů: řádky `OK`/`FAIL` — po změně chování modu testy aktualizovat.
 
@@ -71,7 +80,7 @@ Stopy webu se na TV nevykreslí (UA Tizenu nemá „Chrome" → video.js použij
 Uživatel chce změny **rovnou vydávat** (testuje je pak na TV). Přesný postup:
 
 1. Bump `version` v `package.json`.
-2. `npm run build` (dist/ se commituje).
+2. `npm run build:webos` (= build + `prehrajto-lg.ipk`; dist/ i .ipk se commitují).
 3. `git add` + commit (zpráva `vX.Y.Z: ...`).
 4. **Lightweight tag** `vX.Y.Z` na release commit (uživatel výslovně chce kompletní tagy).
 5. `git push origin main vX.Y.Z`.
@@ -85,4 +94,4 @@ Uživatel chce změny **rovnou vydávat** (testuje je pak na TV). Přesný postu
 
 ## README
 
-README psát pro uživatele repa (co mod umí, instalace v TizenBrew) — **bez** build/release sekcí.
+README psát pro uživatele repa, **stručně**: instalace Samsung (TizenBrew) + LG (.ipk přes webOS Dev Manager), krátké ovládání — **bez** výčtu funkcí a bez build/release sekcí.
