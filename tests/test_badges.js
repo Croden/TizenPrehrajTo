@@ -370,6 +370,7 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
       n: ws.length, best: first.classList.contains('pt-best'), href: a.getAttribute('href'),
       label: !!first.querySelector('.pt-best-label'),
       focused: focusedShadow.indexOf('rgb(255, 180, 0)') !== -1,
+      focusedShadow,
       shadow: cs.boxShadow, outline: cs.outlineStyle, radius: cs.borderRadius, bg: cs.backgroundColor,
       favs: first.querySelectorAll('.video-favorite').length,
       inside: (() => {
@@ -381,9 +382,10 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   });
   ok('první karta = nejlepší verze (CZ dabing, správný rok, bez dislike, ne CAM)', best.best && best.href === '/d' && best.n === 7, JSON.stringify(best));
   ok('karta nepřetéká obal', best.inside);
-  ok('bez štítku, červený rámeček (box-shadow) se zaoblením, tmavé pozadí', !best.label && /rgb\(190, 30, 30\) 0px 0px 0px 6px/.test(best.shadow) &&
+  ok('bez štítku, červený rámeček (box-shadow) se zaoblením, tmavé pozadí', !best.label && /rgb\(190, 30, 30\) 0px 0px 0px 8px/.test(best.shadow) &&
     best.outline === 'none' && best.radius === '8px' && best.bg === 'rgb(26, 26, 26)', JSON.stringify(best));
-  ok('fokus rovnou na nejlepší verzi, rámeček žlutý', best.focused);
+  ok('fokus rovnou na nejlepší verzi, rámeček žlutý a vně 2 px červené', best.focused &&
+    /rgb\(255, 180, 0\) 0px 0px 0px 6px, rgb\(190, 30, 30\) 0px 0px 0px 8px/.test(best.focusedShadow), best.focusedShadow);
 
   // typografie karet + lajky/dislajky vpravo nahoře
   const typo = await page.evaluate(() => {
@@ -462,7 +464,7 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
     };
   });
   ok('historie na oblíbených (název 14px)', hist && hist.fs === '14px' && hist.cards === 1 && hist.href === '/test-video/abc123' && hist.title === 'Testovací video 2019 CZ', JSON.stringify(hist));
-  ok('tmavě šedý blok nad videi, s náhledem', hist && hist.bg === 'rgb(34, 34, 34)' && hist.above && /abc123/.test(hist.thumb), JSON.stringify(hist));
+  ok('tmavě šedý poloprůhledný blok nad videi, s náhledem', hist && hist.bg === 'rgba(34, 34, 34, 0.72)' && hist.above && /abc123/.test(hist.thumb), JSON.stringify(hist));
   ok('fokus na první položce historie (žlutý box-shadow, tmavé pozadí)', hist && hist.focused && /rgb\(255, 180, 0\) 0px 0px 0px 6px/.test(hist.focusShadow) &&
     hist.focusOutline === 'none' && hist.focusBg === 'rgb(26, 26, 26)', JSON.stringify(hist));
 

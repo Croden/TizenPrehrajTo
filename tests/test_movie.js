@@ -144,6 +144,82 @@ const searchHtml = (q) => `<!doctype html><html><head><title>hledej</title></hea
     await page.screenshot({ path: path.join(SHOT, 'movie-card.png') });
   }
 
+  // 4. právě sledované: fokus na videu → backdrop filmu/seriálu (z názvu
+  // videa), neznámé video → backdrop pryč
+  const TITLES = [
+    'Hodný dinosaurus [CZ dabing, 2015, animovany]',
+    'Qwzx blbost nenajdes 1080p',
+    'Sám doma 1 (1990) - CZ Dabing. Top2026',
+    '#Avengers_Endgame_Encore_(2026)_CZ_DABING',
+    'Přátelé S01E05 CZ dabing',
+    'Shrek 2 2004 CZ Dabing TOPKVALITA byLorD',
+  ];
+  const thumbs = (i) => [1, 2, 3].map((n) => n === 1
+    ? `<img data-next="2" class="thumb thumb1" src="https://thumb.prehrajto.cz/t/${i}/1.jpg">`
+    : `<img data-next="${n + 1}" class="thumb-lazy-second thumb thumb${n}" style="display: none;" data-src="https://thumb.prehrajto.cz/t/${i}/${n}.jpg">`).join('');
+  const listHtml = `<!doctype html><html><head><title>x</title></head><body>
+<div class="page"><div class="page-box"><div class="content">
+<div class="header"><input class="video-search-phrase" type="search"></div>
+<main><div class="grid-container"><div class="grid-x"><div class="cell medium-9"><div class="section"><div class="grid-x">
+  ${TITLES.map((t, i) =>
+    `<div class="cell video-wrapper"><div class="video__picture--container"><a class="video video--small video--link" href="/w${i}" title="${t}">
+      <div class="video__header"><picture class="video-item-thumb video__picture">${thumbs(i)}</picture></div><h3 class="video__title">${t}</h3></a></div></div>`).join('')}
+</div></div></div></div></div></main></div></div></div></body></html>`;
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+  await page.route('https://thumb.prehrajto.cz/**', (r) => r.fulfill({ contentType: 'image/png', body: PNG }));
+  await page.route('https://prehrajto.cz/profil/prave-sledovana-videa', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: listHtml }));
+  await page.evaluate(() => sessionStorage.setItem('pt-watched-path', '/profil/prave-sledovana-videa'));
+  await page.goto('https://prehrajto.cz/profil/prave-sledovana-videa');
+  await page.waitForTimeout(800);
+  const bgState = () => page.evaluate(() => {
+    const bg = document.getElementById('pt-reco-backdrop');
+    const on = bg && bg.querySelector('.pt-reco-layer--on');
+    return { cls: bg ? bg.className : null, op: bg ? getComputedStyle(bg).opacity : null, url: on ? on.style.backgroundImage : '' };
+  });
+  const focusW = async (i) => {
+    await page.evaluate((k) => document.querySelectorAll('a.video--link')[k].focus(), i);
+    await page.waitForTimeout(3000);
+    return bgState();
+  };
+  const urls = [];
+  const checks = [
+    [0, 'název před [CZ…, rok]'], [2, '„Sám doma 1 (1990) - CZ Dabing. Top2026"'],
+    [3, '„#Avengers_Endgame_Encore_(2026)_CZ_DABING"'], [4, 'seriál „Přátelé S01E05"'], [5, 'Shrek 2 2004 …'],
+  ];
+  for (const [i, label] of checks) {
+    const w = await focusW(i);
+    ok('sledované: backdrop – ' + label, w.cls === 'pt-visible' && /image\.tmdb\.org/.test(w.url) && w.op === '0.3' && urls.indexOf(w.url) === -1, JSON.stringify(w));
+    urls.push(w.url);
+  }
+  const miss = await focusW(1);
+  ok('sledované: neznámé video → backdrop schovaný', miss.cls === '' && miss.op === '0', JSON.stringify(miss));
+  const cached = await page.evaluate(() => JSON.parse(localStorage.getItem('tizenprehrajto.tmdbVideo2') || '{}'));
+  ok('sledované: výsledky v cache (i nenalezené)', cached['sam doma 1|1990'] && cached['avengers endgame encore|2026'] && cached['pratele|'] &&
+    cached['qwzx blbost nenajdes|'] === '', JSON.stringify(Object.keys(cached)));
+  if (SHOT) await page.screenshot({ path: path.join(SHOT, 'watched.png') });
+
+  // 5. střídání náhledů na fokus (jako hover na webu), po blur zpět na 1.
+  const th = await page.evaluate(async () => {
+    const a = document.querySelectorAll('a.video--link')[1];
+    const vis = () => Array.from(a.querySelectorAll('img.thumb')).findIndex((im) => im.style.display !== 'none');
+    a.focus();
+    const seen = new Set([vis()]);
+    for (let k = 0; k < 6; k++) { await new Promise((r) => setTimeout(r, 300)); seen.add(vis()); }
+    const srcs = Array.from(a.querySelectorAll('img.thumb')).map((im) => im.getAttribute('src'));
+    a.blur();
+    return { seen: Array.from(seen), loaded: srcs.every((x) => /\/\d\.jpg$/.test(x || '')), after: vis() };
+  });
+  ok('náhledy se při fokusu střídají (líné snímky načtené)', th.seen.length === 3 && th.loaded, JSON.stringify(th));
+  ok('po odchodu fokusu zpět první náhled', th.after === 0, JSON.stringify(th));
+
+  // 6. oblíbená videa: stejný backdrop při fokusu
+  await page.unroute('https://prehrajto.cz/oblibena-videa/');
+  await page.route('https://prehrajto.cz/oblibena-videa/', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: listHtml }));
+  await page.goto('https://prehrajto.cz/oblibena-videa/');
+  await page.waitForTimeout(800);
+  const fav = await focusW(5);
+  ok('oblíbená: fokus na videu → backdrop filmu', fav.cls === 'pt-visible' && fav.url === urls[4] && fav.op === '0.3', JSON.stringify(fav));
+
   ok('bez chyb JS', errors.length === 0, errors.join(' | '));
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

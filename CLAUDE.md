@@ -39,13 +39,19 @@ Netflix-style řady filmových posterů z TMDB API (v3, `api_key` v query, `lang
 
 Virtualizace řad: v DOM je jen okno karet kolem fokusu (`RECO_VIRT_SIDE` na stranu, posun až u kraje okna `RECO_VIRT_SLACK`), vlevo je nahrazuje `.pt-reco-spacer` stejné šířky. Všechny karty řady jsou v `state.cards` (`card.__ptIdx`, `card.__ptState`, `strip.__ptState`) – na karty iterovat přes `allRecoCards()`, **ne** `querySelectorAll('.pt-reco-card')` (odpojené by chyběly).
 
+Fade na pravém okraji = jeden fixní `#pt-reco-fade` (top/bottom 0, 160 px, z-index 100, vytváří `openReco`) přes všechno – **ne** `:after` po řadách (v mezerách mezi řadami zůstávaly „díry").
+
+Na oblíbených i „právě sledovaných" (`initWatchedBackdrop`, `body.pt-watched-bg`) fokus na videu/historii (250 ms) → `videoTitleQuery` (název před rokem, před dílem seriálu `SERIES_CUT` a před prvním „šumem" cz/dabing/1080p…) → `/search/multi` (filmy i seriály) postupně s kandidáty `videoQueryCandidates` (celý název, pak bez 1–2 posledních slov; na 1 slovo jen při ubrání čísla) → `pickTitleMatch` (přesná shoda názvu, přednost rok, pak hlasy) → stejný backdrop jako v doporučeních, nenalezeno = backdrop pryč. Cache v localStorage `tizenprehrajto.tmdbVideo2` (i „nenalezeno", max. 400; při změně algoritmu zvednout verzi klíče).
+
+Střídání náhledů videa na fokus (`initThumbRotation`, hledání + oblíbená/sledované): web to dělá jen na hover (`.video-item-thumb`, 500 ms, snímky 2+ mají `data-src`); mod na fokus dosadí `src` a střídá `display`, při blur zpět na 1. snímek; když je nad kartou myš, nechá to webu.
+
 ## Hledání – dlaždice filmu (od v1.16.0)
 
 Na `/hledej/…` mezi vyhledáváním a výsledky `#pt-movie` z TMDB (`/movie/{id}?append_to_response=credits`): poster, název, ★, rok, délka, žánry, tagline, popis, režie, herci + backdrop (`body.pt-movie-bg`, stejný `#pt-reco-backdrop`). Z posteru doporučení jde TMDB id v kontextu hledání; ručně se dotaz očistí (`cleanMovieQuery`: rok, cz/dabing/kvalita…) a bere se jen film s **přesně stejným** názvem (jinak nic). Čeká na to `layoutSettled` (max. limit odhalení stránky). S dlaždicí (`body.pt-movie-info`) se schová nadpis s dotazem, ať je 1. řada výsledků na obrazovce; rodič je flex řádek → dlaždice má `width: calc(100% - 32px)` (lícuje s náhledy), poster je absolutní `div` s pozadím přesahující box.
 
 ## Titulky (od v1.16.0)
 
-Stopy webu se na TV nevykreslí (UA Tizenu nemá „Chrome" → video.js použije nativní `<track>`, VTT je cross-origin bez `crossorigin` na `<video>`). Mod proto titulky stahuje sám (`window.sources.tracks` / JW `tracks` / `<track>`), parsuje VTT/SRT (UTF-8, fallback windows-1250) a kreslí do `#pt-subs` podle `currentTime`; stopy webu drží vypnuté. Značky jen i/b/u přes DOM (žádné innerHTML z titulků). ChannelDown cyklí stopy → vypnuto.
+Stopy webu se na TV nevykreslí (UA Tizenu nemá „Chrome" → video.js použije nativní `<track>`, VTT je cross-origin bez `crossorigin` na `<video>`). Mod proto titulky stahuje sám (`window.sources.tracks` / JW `tracks` / `<track>`), parsuje VTT/SRT (UTF-8, fallback windows-1250) a kreslí do `#pt-subs` podle `currentTime`; stopy webu drží vypnuté. Značky jen i/b/u přes DOM (žádné innerHTML z titulků). ChannelDown cyklí stopy → vypnuto. Styl: 36 px, bílé s tmavým obrysem (víc text-shadow), jemné podložení.
 
 ## Scrapování prehrajto (badge, oblíbená)
 
@@ -56,7 +62,7 @@ Stopy webu se na TV nevykreslí (UA Tizenu nemá „Chrome" → video.js použij
 ## Testování
 
 - **Na TV testovat nejde** — testuje uživatel a dává feedback. Před vydáním vždy ověřit Playwright testy + případně náhledem přes proxy.
-- Testy (spouštět **z kořene repa**, potřebují `.env` a build v `dist/`): `test_reco` (23 – vč. virtualizace řady), `test_restore` (20, bez bfcache – Zpět = `page.goBack()`), `test_scroll` (6), `test_ui` (34 – načítání, hlavička, skeleton, řada na šířku, badge dostupnosti, srdíčko, plynulý scroll, Filtry), `test_launch` (12 – start do doporučení, fokus na 1. položku, redirect `/`), `test_badges` (48 – puntík stavu, obnova při fokusu, šířka karet ve hledání s 1 výsledkem, dabing vylučovací metodou, prázdné hledání se ověřuje 2×, hláška při omezeném hledání, starší filmy po fokusu, Doporučené, nejlepší verze v hledání, historie, typografie karet), `test_scrape` (9 – limiter, 429, limit podle přihlášení), `test_movie` (15 – dlaždice filmu v hledání; `SHOT=<adresář>` uloží screenshoty), `test_subs` (13 – vlastní titulky). Používají `executablePath: '/usr/bin/google-chrome'` a mock HTML stránek prehrajto (route intercept). Limiter dotazů se v testech zrychluje přes `window.__PT_SCRAPE__` (init script před modem).
+- Testy (spouštět **z kořene repa**, potřebují `.env` a build v `dist/`): `test_reco` (25 – vč. virtualizace řady a fade vpravo), `test_restore` (20, bez bfcache – Zpět = `page.goBack()`), `test_scroll` (6), `test_ui` (34 – načítání, hlavička, skeleton, řada na šířku, badge dostupnosti, srdíčko, plynulý scroll, Filtry), `test_launch` (12 – start do doporučení, fokus na 1. položku, redirect `/`), `test_badges` (48 – puntík stavu, obnova při fokusu, šířka karet ve hledání s 1 výsledkem, dabing vylučovací metodou, prázdné hledání se ověřuje 2×, hláška při omezeném hledání, starší filmy po fokusu, Doporučené, nejlepší verze v hledání, historie, typografie karet), `test_scrape` (9 – limiter, 429, limit podle přihlášení), `test_movie` (24 – dlaždice filmu v hledání, backdrop na oblíbených/sledovaných vč. seriálů a „zašuměných" názvů, střídání náhledů; `SHOT=<adresář>` uloží screenshoty), `test_subs` (13 – vlastní titulky). Používají `executablePath: '/usr/bin/google-chrome'` a mock HTML stránek prehrajto (route intercept). Limiter dotazů se v testech zrychluje přes `window.__PT_SCRAPE__` (init script před modem).
 - `test_scroll` simuluje TV vypnutím `scrollIntoView` — tak se chytají chyby staré platformy.
 - Výstup testů: řádky `OK`/`FAIL` — po změně chování modu testy aktualizovat.
 

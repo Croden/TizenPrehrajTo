@@ -647,7 +647,7 @@ body.pt-video .vjs-text-track-display {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 70px;
+  bottom: 56px;
   z-index: 9003;
   text-align: center;
   pointer-events: none;
@@ -659,21 +659,26 @@ body.pt-video #pt-subs.pt-subs--on {
 
 body.pt-video.pt-paused #pt-subs,
 body.pt-video.pt-seeking #pt-subs {
-  bottom: 130px;
+  bottom: 120px;
 }
 
+/* jako na streamovacích službách: bez výrazného boxu, bílé písmo
+   s tmavým obrysem (víc stínů = obrys; -webkit-text-stroke kreslí na TV
+   hrubě) a jemné podložení kvůli čitelnosti na světlé scéně */
 .pt-subs-text {
   display: inline-block;
-  max-width: 80%;
-  padding: 4px 18px;
-  font-size: 46px;
-  line-height: 1.3;
-  font-weight: bold;
+  max-width: 76%;
+  padding: 2px 14px;
+  font-size: 36px;
+  line-height: 1.28;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: #fff;
   white-space: pre-line;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.28);
   border-radius: 6px;
-  text-shadow: 0 0 4px #000, 0 2px 4px #000;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000,
+    0 2px 6px rgba(0, 0, 0, 0.9);
 }
 
 /* Titulek a hodnocení jako overlay – viditelné jen při pauze */
@@ -751,18 +756,23 @@ body.pt-reco #pt-reco-backdrop.pt-visible {
   opacity: 0.3;
 }
 
-/* stejný fade jako na pravém okraji řad i přes samotný backdrop – jinak
-   v mezerách mezi řadami prosvítá obrázek („díra" ve stínu). Backdrop
-   je nad pozadím #1a1a1a, takže na kraji splyne úplně. */
-body.pt-reco #pt-reco-backdrop:after {
-  content: "";
-  position: absolute;
+/* fade na pravém okraji – jeden fixní element přes celou výšku okna
+   nad vším (řady, mezery, backdrop), postery „mizí" do pozadí; dřív byl
+   po řadách a v mezerách mezi nimi zůstávaly „díry" */
+#pt-reco-fade {
+  display: none;
+  position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   width: 160px;
+  z-index: 100;
   background: linear-gradient(to right, rgba(26, 26, 26, 0), #1a1a1a);
-  z-index: 1;
+  pointer-events: none;
+}
+
+body.pt-reco #pt-reco-fade {
+  display: block;
 }
 
 /* jednotlivé obrázky se prolínají jako vrstvy uvnitř kontejneru */
@@ -864,19 +874,6 @@ body.pt-reco .pt-filter-group {
 .pt-reco-row {
   position: relative;
   margin: 0 0 22px;
-}
-
-/* fade na pravém okraji – postery "mizí" do pozadí */
-.pt-reco-row:after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 160px;
-  background: linear-gradient(to right, rgba(26, 26, 26, 0), #1a1a1a);
-  pointer-events: none;
-  z-index: 2;
 }
 
 .pt-reco-row-title {
@@ -1177,20 +1174,24 @@ body.pt-search .video-listing > .video-wrapper.pt-best a.video--link {
   background: #1a1a1a;
   border-radius: 8px;
   outline: none !important;
-  box-shadow: 0 0 0 2px #1a1a1a, 0 0 0 6px #be1e1e;
+  box-shadow: 0 0 0 2px #1a1a1a, 0 0 0 8px #be1e1e;
 }
 
 body.pt-search .video-listing > .video-wrapper.pt-best a.video--link:focus,
 body.pt-search .video-listing > .video-wrapper.pt-best a.video--link:hover {
   outline: none !important;
-  box-shadow: 0 0 0 2px #1a1a1a, 0 0 0 6px #ffb400;
+  /* žlutý fokus uvnitř, vně zůstává 2 px červené – pořád poznat, že je
+     to nejlepší verze */
+  box-shadow: 0 0 0 2px #1a1a1a, 0 0 0 6px #ffb400, 0 0 0 8px #be1e1e;
 }
 
 /* ===== Oblíbená – naposledy přehrávané (šedý blok nad videi) ===== */
 #pt-history {
   margin: 0 8px 16px;
   padding: 4px 12px 8px;
-  background: #222; /* tmavě šedá – odliší se od stránky (#1a1a1a), nekřičí */
+  /* tmavě šedá, poloprůhledná – prosvítá backdrop (jako boxy v doporučení
+     a dlaždice filmu ve hledání) */
+  background: rgba(34, 34, 34, 0.72);
   border-radius: 8px;
 }
 
@@ -1545,4 +1546,16 @@ body.pt-movie-bg .section {
    a ubraná výška drží první řadu výsledků na obrazovce */
 body.pt-movie-info main .section__header {
   display: none !important;
+}
+
+/* ===== Právě sledované – backdrop filmu fokusovaného videa (TMDB) ===== */
+body.pt-watched-bg #pt-reco-backdrop.pt-visible {
+  opacity: 0.3;
+}
+
+body.pt-watched-bg .content,
+body.pt-watched-bg .header,
+body.pt-watched-bg main,
+body.pt-watched-bg .section {
+  background: transparent !important;
 }

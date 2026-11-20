@@ -77,7 +77,7 @@ const videoHtml = `<!doctype html><html><head><title>video</title></head><body>
   let s = await at(1.5);
   ok('výchozí stopa zobrazena podle času', s.shown && s.text === 'Ahoj světe & spol.', JSON.stringify(s));
   ok('kurzíva zachovaná, entita dekódovaná', /<i>světe<\/i>/.test(s.html), s.html);
-  ok('velké písmo dole nad videem', s.fs === '46px' && s.bottom > 40 && s.bottom < 200, JSON.stringify(s));
+  ok('písmo 36 px dole nad videem', s.fs === '36px' && s.bottom > 40 && s.bottom < 200, JSON.stringify(s));
   ok('stopa přehrávače vypnutá (bez zdvojení)', s.nat === 'disabled', s.nat);
   s = await at(3.2);
   ok('mezi titulky nic', !s.shown, JSON.stringify(s));

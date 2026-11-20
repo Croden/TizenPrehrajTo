@@ -1419,6 +1419,11 @@
 
   function openReco(restore) {
     document.body.classList.add('pt-reco');
+    if (!document.getElementById('pt-reco-fade')) {
+      var fade = document.createElement('div');
+      fade.id = 'pt-reco-fade';
+      document.body.appendChild(fade);
+    }
     var sw = recoSwitchEl();
     var row = document.querySelector('.pt-switch-row');
     if (sw) sw.classList.add('pt-switch--active');
@@ -3004,6 +3009,201 @@
     }
   }
 
+  // ----- backdrop na oblíbených a „právě sledovaných" -----
+  // Fokus na videu (po WATCHED_DWELL_MS, ne při rychlém projíždění) →
+  // z názvu videa se odhadne název filmu/seriálu a rok, TMDB hledání
+  // (/search/multi = filmy i seriály); při shodě názvu velký backdrop za
+  // stránkou jako v doporučeních, jinak se backdrop schová. Výsledky
+  // (i „nic") v localStorage, ať se stejné video nehledá znovu.
+  var WATCHED_DWELL_MS = 250;
+  var WATCHED_CACHE_KEY = 'tizenprehrajto.tmdbVideo2';
+  var WATCHED_CACHE_MAX = 400;
+  // řez u označení dílu seriálu (S01E05, 1x05, serie, díl…)
+  var SERIES_CUT = /(^| )(s\d{1,2}(e\d{1,3})?|e\d{1,3}|\d{1,2}x\d{1,3}|serie|season|dil|dily|epizoda|epizody|ep)(?= |$)/;
+  var watchedCache = null;
+  var watchedToken = 0;
+
+  // název videa → {title, year}: před rokem, před dílem seriálu a do
+  // prvního „šumu" (cz, dabing, 1080p…) – za ním bývá jen kvalita
+  // a přezdívka uploadera.
+  //   „Sám doma 1 (1990) - CZ Dabing. Top2026" → sam doma 1 | 1990
+  //   „#Avengers_Endgame_Encore_(2026)_CZ_DABING" → avengers endgame encore | 2026
+  function videoTitleQuery(name) {
+    var s = normTitle(name);
+    var year = null;
+    var ym = / (19\d{2}|20\d{2}) /.exec(s);
+    if (ym && ym.index > 0) {
+      year = ym[1];
+      s = s.slice(0, ym.index + 1);
+    }
+    var sm = SERIES_CUT.exec(s);
+    if (sm && sm.index > 0) s = s.slice(0, sm.index + 1);
+    MOVIE_QUERY_NOISE.lastIndex = 0;
+    var nm = MOVIE_QUERY_NOISE.exec(s);
+    MOVIE_QUERY_NOISE.lastIndex = 0;
+    if (nm && nm.index > 0) s = s.slice(0, nm.index + 1);
+    return { title: s.replace(/\s+/g, ' ').replace(/^ | $/g, ''), year: year };
+  }
+
+  // dotazy od nejpřesnějšího: celý název, pak bez posledních slov
+  // („avengers endgame encore" → „avengers endgame", „sam doma 1" →
+  // „sam doma"); na jedno slovo jen když se ubírá číslo
+  function videoQueryCandidates(title) {
+    var words = title.split(' ');
+    var out = [title];
+    for (var d = 1; d <= 2 && words.length - d >= 1; d++) {
+      var rest = words.slice(0, words.length - d);
+      var dropped = words.slice(words.length - d);
+      if (rest.length < 2 && !/^\d+$/.test(dropped.join(''))) break;
+      out.push(rest.join(' '));
+    }
+    return out;
+  }
+
+  // shoda názvu (český i originální, film i seriál); přednost rok, pak
+  // počet hlasů
+  function pickTitleMatch(list, query, year) {
+    var want = normTitle(query);
+    var best = null;
+    var bestScore = -1;
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i];
+      if (m.media_type && m.media_type !== 'movie' && m.media_type !== 'tv') continue;
+      if (!m.backdrop_path && !m.poster_path) continue;
+      if (normTitle(m.title || m.name) !== want &&
+          normTitle(m.original_title || m.original_name) !== want) continue;
+      var y = (m.release_date || m.first_air_date || '').slice(0, 4);
+      var score = (year && y === year ? 1e9 : 0) + (m.vote_count || 0);
+      if (score > bestScore) { best = m; bestScore = score; }
+    }
+    return best;
+  }
+
+  function watchedCacheLoad() {
+    if (watchedCache) return watchedCache;
+    try {
+      localStorage.removeItem('tizenprehrajto.tmdbVideo'); // starší verze hledání
+      watchedCache = JSON.parse(localStorage.getItem(WATCHED_CACHE_KEY)) || {};
+    } catch (e) { watchedCache = {}; }
+    return watchedCache;
+  }
+
+  function watchedCacheSet(key, url) {
+    var c = watchedCacheLoad();
+    if (Object.keys(c).length >= WATCHED_CACHE_MAX) c = watchedCache = {};
+    c[key] = url;
+    try { localStorage.setItem(WATCHED_CACHE_KEY, JSON.stringify(c)); } catch (e) {}
+  }
+
+  // cb(url | '') – '' = nenalezeno
+  function lookupVideoBackdrop(name, cb) {
+    var q = videoTitleQuery(name);
+    if (!q.title || q.title.length < 2) { cb(''); return; }
+    var key = q.title + '|' + (q.year || '');
+    var c = watchedCacheLoad();
+    if (typeof c[key] === 'string') { cb(c[key]); return; }
+    var cands = videoQueryCandidates(q.title);
+    var i = 0;
+    var next = function () {
+      if (i >= cands.length) {
+        watchedCacheSet(key, '');
+        cb('');
+        return;
+      }
+      var cand = cands[i++];
+      tmdbGet('/search/multi', '&include_adult=false&query=' + encodeURIComponent(cand))
+        .then(function (data) {
+          var m = pickTitleMatch(data.results || [], cand, q.year);
+          if (!m) { next(); return; }
+          var url = m.backdrop_path
+            ? 'https://image.tmdb.org/t/p/w1280' + m.backdrop_path
+            : 'https://image.tmdb.org/t/p/w780' + m.poster_path;
+          watchedCacheSet(key, url);
+          cb(url);
+        })
+        .catch(function () { cb(''); }); // síť/limit – neukládat
+    };
+    next();
+  }
+
+  function initWatchedBackdrop() {
+    document.body.classList.add('pt-watched-bg');
+    var timer = null;
+    document.addEventListener('focus', function (ev) {
+      var a = ev.target;
+      if (!a || !a.classList || document.body.classList.contains('pt-reco') || !getTmdbKey()) return;
+      var t = null;
+      if (a.classList.contains('video--link')) t = a.querySelector('.video__title');
+      else if (a.classList.contains('pt-hist-card')) t = a.querySelector('.pt-hist-title');
+      else return;
+      clearTimeout(timer);
+      var token = ++watchedToken;
+      timer = setTimeout(function () {
+        var name = ((t && t.textContent) || a.getAttribute('title') || '').replace(/\s+/g, ' ');
+        lookupVideoBackdrop(name, function (url) {
+          if (token !== watchedToken || document.body.classList.contains('pt-reco')) return;
+          if (url) showRecoBackdrop(url);
+          else hideRecoBackdrop();
+        });
+      }, WATCHED_DWELL_MS);
+    }, true);
+  }
+
+  // ----- střídání náhledů videa při fokusu -----
+  // Web při hoveru (myš) střídá snímky videa po 500 ms; na TV hover
+  // není – stejné chování na fokus. Snímky 2+ mají jen data-src (líné
+  // načtení). Když je nad kartou zároveň myš (PC), střídá web sám.
+  var THUMB_MS = 500;
+  var thumbTimer = null;
+  var thumbLink = null;
+
+  function thumbImages(link) {
+    return link.querySelectorAll('img.thumb');
+  }
+
+  function showThumb(imgs, idx) {
+    for (var i = 0; i < imgs.length; i++) imgs[i].style.display = i === idx ? '' : 'none';
+  }
+
+  function stopThumbs() {
+    clearInterval(thumbTimer);
+    thumbTimer = null;
+    if (thumbLink) {
+      var imgs = thumbImages(thumbLink);
+      if (imgs.length > 1) showThumb(imgs, 0);
+    }
+    thumbLink = null;
+  }
+
+  function startThumbs(link) {
+    stopThumbs();
+    var imgs = thumbImages(link);
+    if (imgs.length < 2) return;
+    for (var i = 0; i < imgs.length; i++) {
+      var ds = imgs[i].getAttribute('data-src');
+      if (ds && imgs[i].getAttribute('src') !== ds) imgs[i].setAttribute('src', ds);
+    }
+    thumbLink = link;
+    var idx = 0;
+    thumbTimer = setInterval(function () {
+      var hovered = false;
+      try { hovered = link.matches(':hover'); } catch (e) {}
+      if (hovered) return;
+      idx = (idx + 1) % imgs.length;
+      showThumb(imgs, idx);
+    }, THUMB_MS);
+  }
+
+  function initThumbRotation() {
+    document.addEventListener('focus', function (ev) {
+      var a = ev.target;
+      if (a && a.classList && a.classList.contains('video--link')) startThumbs(a);
+    }, true);
+    document.addEventListener('blur', function (ev) {
+      if (ev.target === thumbLink) stopThumbs();
+    }, true);
+  }
+
   // krok pro layoutSettled: true = vyřešeno (dlaždice vložená / žádná)
   function movieInfoStep() {
     if (movieInfoState === 2) return true;
@@ -3564,8 +3764,10 @@
     tidyAccountBar();
     setInterval(tidyAccountBar, 1000); // lišta se dorenderovává později
     if (type === 'video') initVideoPage();
+    if (type === 'search' || type === 'favorites') initThumbRotation();
     if (type === 'favorites') {
       addSwitchButton();
+      initWatchedBackdrop();
       // návrat z hledání vybraného posteru – otevřít doporučení tam, kde byl
       // pozice se obnoví jen při návratu tlačítkem Zpět (z hledání) a hned
       // se spotřebuje – jinak by každé další načtení oblíbených/sledovaných

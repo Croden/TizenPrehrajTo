@@ -77,6 +77,21 @@ const searchHtml = `<!doctype html><html><head><title>hledej</title></head><body
   ok('klíč v localStorage', await page.evaluate(() => !!localStorage.getItem('tizenprehrajto.tmdbKey')));
   ok('titulky viditelné', await page.locator('.pt-reco-title').first().isVisible());
 
+  // 4b. fade na pravém okraji = jeden fixní element přes celou výšku okna,
+  // řady už vlastní fade nemají (v mezerách by zůstávaly „díry")
+  const fade = await page.evaluate(() => {
+    const f = document.getElementById('pt-reco-fade');
+    if (!f) return null;
+    const cs = getComputedStyle(f);
+    const r = f.getBoundingClientRect();
+    const row = getComputedStyle(document.querySelector('.pt-reco-row'), ':after');
+    return { pos: cs.position, top: r.top, h: r.height, right: Math.round(r.right), w: r.width, z: cs.zIndex,
+      grad: /linear-gradient/.test(cs.backgroundImage), rowAfter: row.content, vw: document.documentElement.clientWidth };
+  });
+  ok('fade vpravo: fixní element přes celou výšku nad obsahem', fade && fade.pos === 'fixed' && fade.top === 0 && fade.h === 1080 &&
+    fade.right === fade.vw && fade.w === 160 && fade.grad && +fade.z >= 100, JSON.stringify(fade));
+  ok('řady bez vlastního fade', fade && (fade.rowAfter === 'none' || fade.rowAfter === 'normal'), fade && fade.rowAfter);
+
   // 5. fokus na první kartě
   let focused = await page.evaluate(() => document.activeElement.className);
   ok('fokus na kartě', /pt-reco-card/.test(focused), focused);
