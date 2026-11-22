@@ -871,6 +871,69 @@ body.pt-reco .pt-filter-group {
   color: #9a9a9a;
 }
 
+/* tematická (sezónní) řada – blok jako červený/žlutý + malůvky a sníh.
+   Vánoce: zelená #1e9e46 (stejná sytost jako červená #be1e1e) */
+.pt-reco-row--theme {
+  border-radius: 8px 0 0 8px;
+  padding: 4px 12px 10px;
+  margin-left: -12px;
+}
+
+.pt-reco-row--xmas {
+  background: rgba(30, 158, 70, 0.5);
+}
+
+/* malůvky za postery (kopec nesmí překrýt fokus karty), vpravo od
+   nadpisu řady; stromečky vykukují nad horní hranu bloku */
+.pt-reco-row--theme .pt-reco-strip {
+  position: relative;
+  z-index: 1;
+}
+
+
+.pt-reco-decor {
+  position: absolute;
+  top: -19px;
+  left: 170px;
+  height: 80px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pt-reco-decor svg {
+  display: block;
+}
+
+/* padající sníh přes celou řadu (vločky a jejich @keyframes generuje
+   startRecoSnow), běží trvale; při vzniku se rozsvítí přes opacity */
+.pt-snow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  border-radius: 8px 0 0 8px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.6s;
+}
+
+.pt-snow--on {
+  opacity: 1;
+}
+
+.pt-snow i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border-radius: 50%;
+}
+
 .pt-reco-row {
   position: relative;
   margin: 0 0 22px;

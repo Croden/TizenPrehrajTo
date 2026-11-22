@@ -1325,6 +1325,132 @@
   ];
   var RECO_GROUP_SIZE = 8;
 
+  // ----- tematické (sezónní) řady -----
+  // V období from..to ([měsíc, den], včetně, v rámci jednoho roku) nahradí
+  // řadu RECO_ROWS[replace]; mimo období je tam zase původní řada. Další
+  // téma (Halloween…) = další položka + výzdoba v RECO_DECOR + styl
+  // .pt-reco-row--<theme>. theme = zelený/barevný blok s malůvkami,
+  // snow = v řadě trvale padá sníh.
+  // 207317 = TMDB klíčové slovo „christmas"; jen rodinné/komedie/animované/fantasy.
+  var RECO_SEASONAL = [
+    {
+      from: [11, 15], to: [12, 31], replace: 0,
+      row: { title: 'Vánoční', path: '/discover/movie', params: RELEASED + NO_HORROR + '&with_keywords=207317&with_genres=10751%7C35%7C16%7C14&sort_by=popularity.desc&vote_count.gte=100', shuffle: 3, theme: 'xmas', snow: true },
+    },
+  ];
+
+  // window.__PT_NOW__ (timestamp) = podstrčené „dnes" pro testy/náhled
+  function recoNow() {
+    return typeof window.__PT_NOW__ === 'number' ? new Date(window.__PT_NOW__) : new Date();
+  }
+
+  function activeRecoRows() {
+    var rows = RECO_ROWS.slice();
+    var d = recoNow();
+    var md = (d.getMonth() + 1) * 100 + d.getDate();
+    for (var i = 0; i < RECO_SEASONAL.length; i++) {
+      var s = RECO_SEASONAL[i];
+      if (md >= s.from[0] * 100 + s.from[1] && md <= s.to[0] * 100 + s.to[1]) rows[s.replace] = s.row;
+    }
+    return rows;
+  }
+
+  // Malůvky k tematické řadě (statické inline SVG, žádný vstup zvenčí).
+  // Vánoce: zasněžený kopec, stromečky, sáňkař, sněhulák, dárky.
+  var RECO_DECOR = {
+    xmas: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 60" width="853" height="80">' +
+      // kopec
+      '<path d="M0 60C50 58 110 22 180 20C250 18 300 44 380 47C460 50 540 40 600 46C620 48 632 56 640 60Z" fill="#fff"/>' +
+      // stromečky vlevo
+      '<g><rect x="57" y="43" width="6" height="6" fill="#7a4a21"/>' +
+      '<path d="M60 3L49 19H71ZM60 12L45 31H75ZM60 22L41 44H79Z" fill="#35c46a"/>' +
+      '<path d="M60 3L55.5 9.5Q60 12 64.5 9.5ZM50 24Q60 29 70 24L67 20H53Z" fill="#fff" opacity="0.9"/>' +
+      '<path d="M60 0l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4z" fill="#ffb400"/>' +
+      '<circle cx="54" cy="27" r="2" fill="#be1e1e"/><circle cx="66" cy="37" r="2" fill="#ffb400"/>' +
+      '<circle cx="52" cy="39" r="2" fill="#be1e1e"/><circle cx="64" cy="17" r="1.8" fill="#ffb400"/></g>' +
+      '<g><rect x="101" y="36" width="4" height="5" fill="#7a4a21"/>' +
+      '<path d="M103 10L95 22H111ZM103 18L92 37H114Z" fill="#2aa457"/>' +
+      '<path d="M103 10L99.5 15.3Q103 17 106.5 15.3Z" fill="#fff" opacity="0.9"/></g>' +
+      // sáňkař na svahu
+      '<g transform="translate(272 31) rotate(16)">' +
+      '<path d="M-34 -9h10M-38 -3h12M-33 -15h7" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>' +
+      '<path d="M-17 0H14Q20 0 20 -6" fill="none" stroke="#ffb400" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M-10 0V-4M9 0V-4" stroke="#ffb400" stroke-width="2"/>' +
+      '<rect x="-13" y="-6" width="25" height="3" rx="1" fill="#7a4a21"/>' +
+      '<path d="M0 -8L11 -7" stroke="#2b4a8b" stroke-width="4" stroke-linecap="round"/>' +
+      '<rect x="-7" y="-19" width="10" height="13" rx="4" fill="#be1e1e"/>' +
+      '<path d="M-1 -14L9 -9" stroke="#be1e1e" stroke-width="3" stroke-linecap="round"/>' +
+      '<path d="M-4 -19L-17 -22L-15 -17Z" fill="#ffb400"/>' +
+      '<circle cx="-1" cy="-23" r="4.5" fill="#ffd9b3"/>' +
+      '<path d="M-6 -24Q-2 -34 4 -25Z" fill="#ffb400"/><circle cx="-7" cy="-30" r="2" fill="#fff"/></g>' +
+      // stromeček vpravo
+      '<g><rect x="428" y="44" width="5" height="5" fill="#7a4a21"/>' +
+      '<path d="M430.5 12L421 27H440ZM430.5 22L417 45H444Z" fill="#35c46a"/>' +
+      '<path d="M430.5 12L426.5 18.3Q430.5 20.5 434.5 18.3Z" fill="#fff" opacity="0.9"/>' +
+      '<circle cx="426" cy="38" r="1.8" fill="#ffb400"/><circle cx="435" cy="32" r="1.8" fill="#be1e1e"/></g>' +
+      // sněhulák
+      '<g><circle cx="500" cy="42" r="9" fill="#fff" stroke="#b9d3dc" stroke-width="1"/>' +
+      '<circle cx="500" cy="28" r="6.5" fill="#fff" stroke="#b9d3dc" stroke-width="1"/>' +
+      '<circle cx="500" cy="17.5" r="5" fill="#fff" stroke="#b9d3dc" stroke-width="1"/>' +
+      '<rect x="495" y="7" width="10" height="6" fill="#222"/><rect x="492" y="12" width="16" height="2" fill="#222"/>' +
+      '<rect x="495" y="10" width="10" height="2" fill="#be1e1e"/>' +
+      '<circle cx="498.3" cy="16.5" r="0.8" fill="#222"/><circle cx="501.7" cy="16.5" r="0.8" fill="#222"/>' +
+      '<path d="M500 18.5L506 19.5L500 20.3Z" fill="#ff7a00"/>' +
+      '<path d="M494.5 21.5Q500 24.5 505.5 21.5L506 24Q500 27 494 24Z" fill="#be1e1e"/>' +
+      '<path d="M504 23.5L507 31L503.5 30Z" fill="#be1e1e"/>' +
+      '<circle cx="500" cy="29" r="0.9" fill="#222"/><circle cx="500" cy="38" r="0.9" fill="#222"/>' +
+      '<path d="M493.5 27L485 21M506.5 27L515 22" stroke="#7a4a21" stroke-width="1.5" stroke-linecap="round"/></g>' +
+      // dárky
+      '<g><rect x="550" y="33" width="15" height="13" fill="#be1e1e"/><rect x="556" y="33" width="3" height="13" fill="#ffb400"/>' +
+      '<rect x="550" y="38" width="15" height="2.5" fill="#ffb400"/>' +
+      '<path d="M557.5 33Q552 26 554 31ZM557.5 33Q563 26 561 31Z" fill="#ffb400" stroke="#ffb400" stroke-width="1.5"/>' +
+      '<rect x="568" y="38" width="11" height="9" fill="#ffb400"/><rect x="572.2" y="38" width="2.6" height="9" fill="#be1e1e"/>' +
+      '<path d="M573.5 38Q569.5 33 571 37ZM573.5 38Q577.5 33 576 37Z" fill="#be1e1e" stroke="#be1e1e" stroke-width="1.2"/></g>' +
+      '</svg>',
+  };
+
+  // ----- padající sníh v tematické řadě -----
+  // Podle hyperstown/pure-snow.js (MIT): každá vločka je div s vlastní
+  // @keyframes animací (jen transform → běží na compositoru). Upraveno
+  // pro TV: ES5, rozměry v px podle řady (ne celé stránky), bez
+  // drop-shadow filtru, méně vloček. Sněží jen v té jedné řadě, proto
+  // běží trvale (ve skryté skupině/mimo doporučení je řada display:none
+  // a animace stojí); při vzniku se rozsvítí přes opacity.
+  var RECO_SNOW_COUNT = 40;
+
+  function startRecoSnow(rowEl) {
+    if (rowEl.__ptSnow) return;
+    var w = rowEl.offsetWidth;
+    var h = rowEl.offsetHeight;
+    if (!w || !h) return; // řada ještě nemá rozměry – zkusí se znovu po načtení karet
+    rowEl.__ptSnow = true;
+    var el = document.createElement('div');
+    el.className = 'pt-snow';
+    var rule = '';
+    for (var i = 1; i <= RECO_SNOW_COUNT; i++) {
+      var x = Math.round(Math.random() * w);
+      var drift = Math.random() * 120; // vločka cestou uhne a kousek se vrátí
+      var yoyo = 0.3 + Math.random() * 0.5;
+      var scale = (0.3 + Math.random() * 0.7).toFixed(2);
+      var dur = (6 + Math.random() * 8).toFixed(1);
+      var delay = (Math.random() * 14).toFixed(1);
+      rule += '.pt-snow i:nth-child(' + i + '){opacity:' + (0.3 + Math.random() * 0.6).toFixed(2) +
+        ';transform:translate(' + x + 'px,-12px) scale(' + scale + ');' +
+        'animation:pt-snow-' + i + ' ' + dur + 's -' + delay + 's linear infinite}' +
+        '@keyframes pt-snow-' + i + '{' + (yoyo * 100).toFixed(0) + '%{transform:translate(' +
+        Math.round(x + drift) + 'px,' + Math.round(yoyo * h) + 'px) scale(' + scale + ')}' +
+        'to{transform:translate(' + Math.round(x + drift / 2) + 'px,' + (h + 12) + 'px) scale(' + scale + ')}}';
+      el.appendChild(document.createElement('i'));
+    }
+    var css = document.createElement('style');
+    css.id = 'pt-snow-css';
+    css.textContent = rule;
+    document.head.appendChild(css);
+    rowEl.appendChild(el);
+    void el.offsetWidth; // přepočet stylu, ať se opacity opravdu animuje z 0
+    el.className = 'pt-snow pt-snow--on';
+  }
+
   function getTmdbKey() {
     try { return localStorage.getItem(TMDB_LS_KEY); } catch (e) { return null; }
   }
@@ -1553,19 +1679,21 @@
     // je vždy jen jedna, mezi nimi se přechází šipkou dolů/nahoru na
     // kraji skupiny (další skupina se načte až při prvním zobrazení)
     var half = RECO_GROUP_SIZE;
-    for (var g = 0; g * half < RECO_ROWS.length; g++) {
+    var allRows = activeRecoRows();
+    for (var g = 0; g * half < allRows.length; g++) {
       var groupEl = document.createElement('div');
       groupEl.className = 'pt-reco-group' + (g ? ' pt-reco-group--hidden' : '');
       rows.appendChild(groupEl);
       var group = { el: groupEl, states: [], loaded: g === 0 };
       recoGroups.push(group);
-      var slice = RECO_ROWS.slice(g * half, (g + 1) * half);
+      var slice = allRows.slice(g * half, (g + 1) * half);
       for (var i = 0; i < slice.length; i++) {
         var cfg = slice[i];
         var rowEl = document.createElement('div');
         rowEl.className = 'pt-reco-row' + (cfg.boxed ? ' pt-reco-row--boxed' : '') +
           (cfg.boxed === 'yellow' ? ' pt-reco-row--yellow' : '') +
-          (cfg.wide ? ' pt-reco-row--wide' : '');
+          (cfg.wide ? ' pt-reco-row--wide' : '') +
+          (cfg.theme ? ' pt-reco-row--theme pt-reco-row--' + cfg.theme : '');
         var h = document.createElement('h2');
         h.className = 'pt-reco-row-title';
         h.textContent = cfg.title;
@@ -1574,6 +1702,12 @@
         addRecoSkeletons(strip, cfg.wide);
         rowEl.appendChild(h);
         rowEl.appendChild(strip);
+        if (cfg.theme && RECO_DECOR[cfg.theme]) {
+          var decor = document.createElement('div');
+          decor.className = 'pt-reco-decor';
+          decor.innerHTML = RECO_DECOR[cfg.theme];
+          rowEl.appendChild(decor);
+        }
         groupEl.appendChild(rowEl);
         var globalIdx = g * half + i;
         // při obnově pozice stejné náhodné starty jako před odchodem,
@@ -1603,6 +1737,7 @@
         recoState.push(state);
         group.states.push(state);
         if (g === 0) loadRecoPage(state);
+        if (cfg.snow) startRecoSnow(rowEl);
       }
     }
     if (restore) {
@@ -1721,6 +1856,7 @@
           recoAddCard(state, makeRecoCard(m, wide));
         }
         recoWindow(state, state.anchor);
+        if (state.cfg.snow) startRecoSnow(state.strip.parentNode);
         if (state.focusFirst) {
           state.focusFirst = false;
           var first = state.strip.querySelector('.pt-reco-card');
