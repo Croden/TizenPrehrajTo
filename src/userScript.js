@@ -1300,7 +1300,8 @@
   var FAMILY_GENRES = '10751%7C16%7C14%7C878%7C12'; // rodinné|animované|fantasy|sci-fi|dobrodružné
   // Skupiny po RECO_GROUP_SIZE řadách, v každé stejný rytmus:
   //   2× běžná · zvýrazněná (boxed) · 2× běžná · na šířku (wide) · 2× běžná
-  // boxed: true = červený blok, 'yellow' = žlutý (2. skupina se tím odliší)
+  // boxed: true = červený blok, 'yellow' = žlutý (2. skupina se tím odliší),
+  // 'gray' = šedý (jen přes restyle sezónní řady)
   // Na šířku jsou stálé řady (bez/s malým shuffle), ať se „velké"
   // zobrazení nemění pořád.
   var RECO_ROWS = [
@@ -1328,13 +1329,16 @@
   // ----- tematické (sezónní) řady -----
   // V období from..to ([měsíc, den], včetně, v rámci jednoho roku) nahradí
   // řadu RECO_ROWS[replace]; mimo období je tam zase původní řada. Další
-  // téma (Halloween…) = další položka + výzdoba v RECO_DECOR + styl
-  // .pt-reco-row--<theme>. theme = zelený/barevný blok s malůvkami,
-  // snow = v řadě trvale padá sníh.
+  // téma (Halloween…) = další položka + scéna v RECO_SCENES + styl
+  // .pt-reco-row--<theme>. theme = barevný pás přes celou šířku stránky
+  // s malůvkami, snow = v pásu trvale padá sníh, restyle = po dobu
+  // sezóny jiný box u jiné řady.
   // 207317 = TMDB klíčové slovo „christmas"; jen rodinné/komedie/animované/fantasy.
   var RECO_SEASONAL = [
     {
       from: [11, 15], to: [12, 31], replace: 0,
+      // pás je červený → „Nově ke zhlédnutí" je po dobu sezóny šedé
+      restyle: [{ index: 2, boxed: 'gray' }],
       row: { title: 'Vánoční', path: '/discover/movie', params: RELEASED + NO_HORROR + '&with_keywords=207317&with_genres=10751%7C35%7C16%7C14&sort_by=popularity.desc&vote_count.gte=100', shuffle: 3, theme: 'xmas', snow: true },
     },
   ];
@@ -1350,82 +1354,234 @@
     var md = (d.getMonth() + 1) * 100 + d.getDate();
     for (var i = 0; i < RECO_SEASONAL.length; i++) {
       var s = RECO_SEASONAL[i];
-      if (md >= s.from[0] * 100 + s.from[1] && md <= s.to[0] * 100 + s.to[1]) rows[s.replace] = s.row;
+      if (md < s.from[0] * 100 + s.from[1] || md > s.to[0] * 100 + s.to[1]) continue;
+      rows[s.replace] = s.row;
+      for (var j = 0; s.restyle && j < s.restyle.length; j++) {
+        var src = rows[s.restyle[j].index];
+        var copy = {};
+        for (var k in src) if (src.hasOwnProperty(k)) copy[k] = src[k];
+        copy.boxed = s.restyle[j].boxed;
+        rows[s.restyle[j].index] = copy;
+      }
     }
     return rows;
   }
 
-  // Malůvky k tematické řadě (statické inline SVG, žádný vstup zvenčí).
-  // Vánoce: zasněžený kopec, stromečky, sáňkař, sněhulák, dárky.
-  var RECO_DECOR = {
-    xmas: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 60" width="853" height="80">' +
-      // kopec
-      '<path d="M0 60C50 58 110 22 180 20C250 18 300 44 380 47C460 50 540 40 600 46C620 48 632 56 640 60Z" fill="#fff"/>' +
-      // stromečky vlevo
-      '<g><rect x="57" y="43" width="6" height="6" fill="#7a4a21"/>' +
-      '<path d="M60 3L49 19H71ZM60 12L45 31H75ZM60 22L41 44H79Z" fill="#35c46a"/>' +
-      '<path d="M60 3L55.5 9.5Q60 12 64.5 9.5ZM50 24Q60 29 70 24L67 20H53Z" fill="#fff" opacity="0.9"/>' +
-      '<path d="M60 0l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4z" fill="#ffb400"/>' +
-      '<circle cx="54" cy="27" r="2" fill="#be1e1e"/><circle cx="66" cy="37" r="2" fill="#ffb400"/>' +
-      '<circle cx="52" cy="39" r="2" fill="#be1e1e"/><circle cx="64" cy="17" r="1.8" fill="#ffb400"/></g>' +
-      '<g><rect x="101" y="36" width="4" height="5" fill="#7a4a21"/>' +
-      '<path d="M103 10L95 22H111ZM103 18L92 37H114Z" fill="#2aa457"/>' +
-      '<path d="M103 10L99.5 15.3Q103 17 106.5 15.3Z" fill="#fff" opacity="0.9"/></g>' +
-      // sáňkař na svahu
-      '<g transform="translate(272 31) rotate(16)">' +
-      '<path d="M-34 -9h10M-38 -3h12M-33 -15h7" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>' +
-      '<path d="M-17 0H14Q20 0 20 -6" fill="none" stroke="#ffb400" stroke-width="2" stroke-linecap="round"/>' +
-      '<path d="M-10 0V-4M9 0V-4" stroke="#ffb400" stroke-width="2"/>' +
-      '<rect x="-13" y="-6" width="25" height="3" rx="1" fill="#7a4a21"/>' +
-      '<path d="M0 -8L11 -7" stroke="#2b4a8b" stroke-width="4" stroke-linecap="round"/>' +
-      '<rect x="-7" y="-19" width="10" height="13" rx="4" fill="#be1e1e"/>' +
-      '<path d="M-1 -14L9 -9" stroke="#be1e1e" stroke-width="3" stroke-linecap="round"/>' +
-      '<path d="M-4 -19L-17 -22L-15 -17Z" fill="#ffb400"/>' +
-      '<circle cx="-1" cy="-23" r="4.5" fill="#ffd9b3"/>' +
-      '<path d="M-6 -24Q-2 -34 4 -25Z" fill="#ffb400"/><circle cx="-7" cy="-30" r="2" fill="#fff"/></g>' +
-      // stromeček vpravo
-      '<g><rect x="428" y="44" width="5" height="5" fill="#7a4a21"/>' +
-      '<path d="M430.5 12L421 27H440ZM430.5 22L417 45H444Z" fill="#35c46a"/>' +
-      '<path d="M430.5 12L426.5 18.3Q430.5 20.5 434.5 18.3Z" fill="#fff" opacity="0.9"/>' +
-      '<circle cx="426" cy="38" r="1.8" fill="#ffb400"/><circle cx="435" cy="32" r="1.8" fill="#be1e1e"/></g>' +
-      // sněhulák
-      '<g><circle cx="500" cy="42" r="9" fill="#fff" stroke="#b9d3dc" stroke-width="1"/>' +
-      '<circle cx="500" cy="28" r="6.5" fill="#fff" stroke="#b9d3dc" stroke-width="1"/>' +
-      '<circle cx="500" cy="17.5" r="5" fill="#fff" stroke="#b9d3dc" stroke-width="1"/>' +
-      '<rect x="495" y="7" width="10" height="6" fill="#222"/><rect x="492" y="12" width="16" height="2" fill="#222"/>' +
-      '<rect x="495" y="10" width="10" height="2" fill="#be1e1e"/>' +
-      '<circle cx="498.3" cy="16.5" r="0.8" fill="#222"/><circle cx="501.7" cy="16.5" r="0.8" fill="#222"/>' +
-      '<path d="M500 18.5L506 19.5L500 20.3Z" fill="#ff7a00"/>' +
-      '<path d="M494.5 21.5Q500 24.5 505.5 21.5L506 24Q500 27 494 24Z" fill="#be1e1e"/>' +
-      '<path d="M504 23.5L507 31L503.5 30Z" fill="#be1e1e"/>' +
-      '<circle cx="500" cy="29" r="0.9" fill="#222"/><circle cx="500" cy="38" r="0.9" fill="#222"/>' +
-      '<path d="M493.5 27L485 21M506.5 27L515 22" stroke="#7a4a21" stroke-width="1.5" stroke-linecap="round"/></g>' +
-      // dárky
-      '<g><rect x="550" y="33" width="15" height="13" fill="#be1e1e"/><rect x="556" y="33" width="3" height="13" fill="#ffb400"/>' +
-      '<rect x="550" y="38" width="15" height="2.5" fill="#ffb400"/>' +
-      '<path d="M557.5 33Q552 26 554 31ZM557.5 33Q563 26 561 31Z" fill="#ffb400" stroke="#ffb400" stroke-width="1.5"/>' +
-      '<rect x="568" y="38" width="11" height="9" fill="#ffb400"/><rect x="572.2" y="38" width="2.6" height="9" fill="#be1e1e"/>' +
-      '<path d="M573.5 38Q569.5 33 571 37ZM573.5 38Q577.5 33 576 37Z" fill="#be1e1e" stroke="#be1e1e" stroke-width="1.2"/></g>' +
-      '</svg>',
-  };
+  // ----- vánoční scéna -----
+  // Malůvky pod postery přes celou šířku pásu: dva pruhy zasněžených
+  // kopců (SVG), na předním stojí stromečky, sněhulák a dárky a jezdí
+  // sáňkař. Vše statické řetězce (žádný vstup zvenčí). Pohyb jen přes
+  // CSS animace transform/opacity na HTML prvcích (ne uvnitř SVG – to
+  // staré Tizen Chromium neumí spolehlivě).
+  var XMAS_H = 104; // výška scény = spodní padding pásu (appStyles.css)
+  var XMAS_SLED_FROM = 585; // start sáňkaře (těsně za vrcholem kopce)
+  var XMAS_SLED_TO = 960; // kde dojede
 
-  // ----- padající sníh v tematické řadě -----
+  // výška terénu (px od horního okraje scény) v bodě x
+  function xmasGround(x) {
+    return 84 + 7 * Math.sin(x / 170 + 0.5) + 3 * Math.sin(x / 61) -
+      46 * Math.exp(-Math.pow((x - 560) / 170, 2));
+  }
+
+  function xmasBackHill(x) {
+    return 58 + 12 * Math.sin(x / 230 + 2) + 6 * Math.sin(x / 97 + 1);
+  }
+
+  function xmasHillPath(fn, w) {
+    var d = 'M0 ' + XMAS_H;
+    for (var x = 0; x <= w + 16; x += 16) d += 'L' + x + ' ' + fn(x).toFixed(1);
+    return d + 'L' + (w + 16) + ' ' + XMAS_H + 'Z';
+  }
+
+  function svgWrap(viewBox, w, h, body) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + viewBox + '" width="' + w + '" height="' + h + '">' + body + '</svg>';
+  }
+
+  // čárová kresba „jako nálepka": bílý podklad + tmavá linka (čitelná
+  // na sněhu i na červeném pásu)
+  function inkLines(d) {
+    var common = '" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+    return '<path d="' + d + '" stroke="#fff" stroke-width="5.5' + common +
+      '<path d="' + d + '" stroke="#222" stroke-width="2.2' + common;
+  }
+
+  // hlava s kulichem; dir = 1 kouká doprava, -1 doleva
+  function xmasHead(cx, cy, dir) {
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="8" fill="#fff"/>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="6.4" fill="#fff" stroke="#222" stroke-width="2"/>' +
+      '<path d="M' + (cx - 6.6) + ' ' + (cy - 1.5) + 'Q' + cx + ' ' + (cy - 13) + ' ' + (cx + 6.6) + ' ' + (cy - 1.5) +
+      'Q' + cx + ' ' + (cy - 4.5) + ' ' + (cx - 6.6) + ' ' + (cy - 1.5) + 'Z" fill="#4aa3ff" stroke="#222" stroke-width="1.4" stroke-linejoin="round"/>' +
+      '<circle cx="' + (cx - dir) + '" cy="' + (cy - 9.5) + '" r="2.4" fill="#fff" stroke="#222" stroke-width="1"/>' +
+      '<circle cx="' + (cx + 3 * dir) + '" cy="' + (cy + 0.5) + '" r="1" fill="#222"/>' +
+      '<path d="M' + (cx + dir) + ' ' + (cy + 3.2) + 'Q' + (cx + 3 * dir) + ' ' + (cy + 4.8) + ' ' + (cx + 4.6 * dir) + ' ' + (cy + 2.8) +
+      '" fill="none" stroke="#222" stroke-width="1" stroke-linecap="round"/>';
+  }
+
+  // pruhovaná šála (zelená s bílými proužky)
+  function xmasScarf(d) {
+    return '<path d="' + d + '" fill="none" stroke="#1e9e46" stroke-width="4" stroke-linecap="round"/>' +
+      '<path d="' + d + '" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="2.5 3.5"/>';
+  }
+
+  // sáňkař v jízdě (sedí na saních, jede doprava); dotyk se sněhem y=42, střed x=28
+  function xmasRideSvg() {
+    return svgWrap('0 0 56 44', 76, 60,
+      xmasScarf('M25 20Q16 14 6 18') +
+      inkLines('M8 41H42Q49 41 49 34M16 41V35M38 41V35M11 35H42' + // saně
+        'M22 33L26 21M22 33L33 28L42 34M26 22L36 29L48 34') + // tělo, nohy, ruka s provázkem
+      xmasHead(28, 13, 1));
+  }
+
+  // sáňkař táhne saně do kopce (jde doleva); legs = fáze kroku; saně mají střed x=56, sníh y=44
+  function xmasWalkSvg(legs) {
+    return svgWrap('0 0 84 46', 114, 62,
+      xmasScarf('M19 19Q25 22 30 18') +
+      inkLines('M72 43H46Q39 43 39 36M48 43V37M66 43V37M46 37H70' + // saně
+        'M41 38L27 28L18 21L11 27M18 19L19 31' + legs) + // provázek, ruce, tělo, nohy
+      xmasHead(17, 11, -1));
+  }
+
+  // vyplněný tvar „jako nálepka" (stejný styl jako sáňkař): bílý
+  // obrys kolem dokola + tmavá linka
+  function inkUnderlay(d) {
+    return '<path d="' + d + '" fill="#fff" stroke="#fff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+
+  function inkShape(d, fill) {
+    return '<path d="' + d + '" fill="' + fill + '" stroke="#222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+
+  // stromeček: zelená patra s vlnitým lemem, sníh na špičce; hvězdu
+  // a ozdoby má jen jeden (star)
+  function xmasTreeSvg(w, star) {
+    var trunk = 'M26 66H34V76H26Z';
+    var l1 = 'M30 34L5 66Q11 71 17.5 66Q24 71 30 66Q36 71 42.5 66Q49 71 55 66Z';
+    var l2 = 'M30 20L10 48Q16.5 53 23 48Q30 53 37 48Q43.5 53 50 48Z';
+    var l3 = 'M30 6L15 30Q22.5 35 30 30Q37.5 35 45 30Z';
+    var starD = 'M30 -6l2.5 5.2 5.7.7-4.2 4 1 5.7-5-2.7-5 2.7 1-5.7-4.2-4 5.7-.7z';
+    function ball(cx, cy, fill) {
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="2.6" fill="' + fill + '" stroke="#222" stroke-width="1.2"/>';
+    }
+    return svgWrap('-3 -10 66 90', w, Math.round(w * 1.4),
+      inkUnderlay(trunk + l1 + l2 + l3 + (star ? starD : '')) +
+      inkShape(trunk, '#8a5a2b') + inkShape(l1, '#1f9a4d') + inkShape(l2, '#2bb35e') + inkShape(l3, '#3fcf75') +
+      inkShape('M30 6L23 17Q26.5 21 30 17Q33.5 21 37 17Z', '#fff') +
+      (star ? ball(20, 60, '#e02b2b') + ball(40, 59, '#ffb400') + ball(30, 56, '#5cc8ff') +
+        ball(23, 43, '#ffb400') + ball(37, 42, '#e02b2b') + ball(30, 26, '#ffb400') +
+        inkShape(starD, '#ffb400') : ''));
+  }
+
+  // sněhulák: velká hlava, cylindr nakřivo, mává (stojí, nekolébá se)
+  function xmasSnowmanSvg() {
+    var body = 'M15 57a17 17 0 1 0 34 0a17 17 0 1 0 -34 0Z';
+    var head = 'M18.5 29a13.5 13.5 0 1 0 27 0a13.5 13.5 0 1 0 -27 0Z';
+    var scarf = 'M20 39Q32 46 44 39L45.5 44Q32 52 18.5 44Z';
+    var tail = 'M39 45L46 60L38.5 58Z';
+    var hat = 'M22 3H42V15H48V19H16V15H22Z';
+    return svgWrap('-4 -6 72 86', 72, 86,
+      inkLines('M15 52L4 41M8 45L3 47M8 45L9 39M49 50L59 33M56 38L62 37M56 38L54 32') + // ruce z větví
+      inkUnderlay(body + head) +
+      '<g transform="rotate(-16 32 16)">' + inkUnderlay(hat) + '</g>' +
+      inkShape(body, '#fff') + inkShape(head, '#fff') +
+      inkShape(tail, '#1e9e46') + inkShape(scarf, '#1e9e46') +
+      '<g transform="rotate(-16 32 16)">' + inkShape(hat, '#3a3a3a') +
+      '<rect x="22" y="11" width="20" height="3.5" fill="#ffb400"/></g>' +
+      '<circle cx="27" cy="27" r="2" fill="#222"/><circle cx="38" cy="27" r="2" fill="#222"/>' +
+      inkShape('M32 30L47 33L32 35Z', '#ff8a1f') +
+      '<path d="M25 36Q31 42 39 37" fill="none" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>' +
+      '<circle cx="32" cy="55" r="2" fill="#222"/><circle cx="32" cy="63" r="2" fill="#222"/>');
+  }
+
+  function xmasGiftsSvg() {
+    var a = 'M2 9H24V28H2Z';
+    var bowA = 'M13 9Q4 -2 7 7ZM13 9Q22 -2 19 7Z';
+    var b = 'M26 15H42V28H26Z';
+    var bowB = 'M34 15Q28 7 30 13ZM34 15Q40 7 38 13Z';
+    return svgWrap('-3 -5 50 37', 50, 37,
+      inkUnderlay(a + bowA + b + bowB) +
+      inkShape(a, '#1e9e46') + '<path d="M10.5 9H15.5V28H10.5ZM2 16H24V20H2Z" fill="#ffb400"/>' + inkShape(bowA, '#ffb400') +
+      inkShape(b, '#ffb400') + '<path d="M32 15H36V28H32Z" fill="#2f7fd6"/>' + inkShape(bowB, '#2f7fd6'));
+  }
+
+  // prvek stojící na předním kopci v bodě x (sink = o kolik zapadá do sněhu)
+  function xmasSprite(cls, svg, x, w, h, sink, delay) {
+    var d = document.createElement('div');
+    d.className = 'pt-xmas-sprite' + (cls ? ' ' + cls : '');
+    d.style.left = Math.round(x - w / 2) + 'px';
+    d.style.top = Math.round(xmasGround(x) - h + sink) + 'px';
+    if (delay) d.style.animationDelay = '-' + delay + 's';
+    d.innerHTML = svg;
+    return d;
+  }
+
+  // @keyframes jízdy: sjede z kopce (0–14 %), chvíli sedí (do 26 %),
+  // zvedne se (poskok), pomalu táhne saně zpět nahoru (29–84 %), sedne
+  // si a čeká na další jízdu. Body kopírují terén (xmasGround); náklon
+  // podle sklonu, při chůzi jen mírný. Střídání póz (jízda/chůze) je
+  // ve stejných procentech v appStyles.css (pt-xmas-ride/-walk).
+  function xmasSledCss() {
+    var pos = '';
+    var tilt = '';
+    function frame(pct, x, lift, k) {
+      var slope = Math.atan((xmasGround(x + 6) - xmasGround(x - 6)) / 12) * 180 / Math.PI;
+      pos += pct.toFixed(2) + '%{transform:translate(' + x.toFixed(1) + 'px,' + (xmasGround(x) - lift).toFixed(1) + 'px)}';
+      tilt += pct.toFixed(2) + '%{transform:rotate(' + (slope * k).toFixed(1) + 'deg)}';
+    }
+    var a = XMAS_SLED_FROM;
+    var b = XMAS_SLED_TO;
+    var i;
+    for (i = 0; i <= 14; i++) {
+      var p = i / 14;
+      frame(p * 14, a + (b - a) * p * p * (3 - 2 * p), 0, 1); // rozjezd a dojezd
+    }
+    frame(26, b, 0, 1);
+    frame(27.5, b, 7, 0.4);
+    frame(29, b, 0, 0.4);
+    for (i = 1; i <= 10; i++) frame(29 + 55 * i / 10, b + (a - b) * i / 10, 0, 0.4);
+    frame(85.5, a, 7, 1);
+    frame(87, a, 0, 1);
+    frame(100, a, 0, 1);
+    return '@keyframes pt-xmas-pos{' + pos + '}@keyframes pt-xmas-tilt{' + tilt + '}';
+  }
+
+  // scéna do .pt-reco-decor šířky w; vrací CSS, které k ní patří
+  function buildXmasScene(decor, w) {
+    decor.innerHTML = svgWrap('0 0 ' + w + ' ' + XMAS_H, w, XMAS_H,
+      '<path d="' + xmasHillPath(xmasBackHill, w) + '" fill="#fff" opacity="0.35"/>' +
+      '<path d="' + xmasHillPath(xmasGround, w) + '" fill="#fff"/>');
+    var trees = [[92, 56], [158, 34], [372, 46], [1092, 58], [1156, 36], [1486, 48], [1700, 38], [1890, 52]];
+    for (var i = 0; i < trees.length; i++) {
+      if (trees[i][0] > w) continue;
+      // všechny se pohupují (každý jinak posunutý), hvězdu a ozdoby má jen ten největší
+      decor.appendChild(xmasSprite('pt-xmas-sway', xmasTreeSvg(trees[i][1], i === 3),
+        trees[i][0], trees[i][1], Math.round(trees[i][1] * 1.4), 5, i * 0.7 + 0.1));
+    }
+    decor.appendChild(xmasSprite('', xmasGiftsSvg(), 1218, 50, 37, 6));
+    decor.appendChild(xmasSprite('', xmasSnowmanSvg(), 1330, 72, 86, 9));
+    var sled = document.createElement('div');
+    sled.className = 'pt-xmas-sled';
+    sled.innerHTML = '<div class="pt-xmas-tilt">' +
+      '<div class="pt-xmas-ride">' + xmasRideSvg() + '</div>' +
+      '<div class="pt-xmas-walk">' +
+      '<div class="pt-xmas-step">' + xmasWalkSvg('M19 31L12 44M19 31L25 44') + '</div>' +
+      '<div class="pt-xmas-step pt-xmas-step--b">' + xmasWalkSvg('M19 31L17 44M19 31L21 44') + '</div>' +
+      '</div></div>';
+    decor.appendChild(sled);
+    return xmasSledCss();
+  }
+
+  var RECO_SCENES = { xmas: buildXmasScene };
+
+  // ----- padající sníh v tematickém pásu -----
   // Podle hyperstown/pure-snow.js (MIT): každá vločka je div s vlastní
   // @keyframes animací (jen transform → běží na compositoru). Upraveno
-  // pro TV: ES5, rozměry v px podle řady (ne celé stránky), bez
-  // drop-shadow filtru, méně vloček. Sněží jen v té jedné řadě, proto
+  // pro TV: ES5, rozměry v px podle pásu (ne celé stránky), bez
+  // drop-shadow filtru, méně vloček. Sněží jen v tom jednom pásu, proto
   // běží trvale (ve skryté skupině/mimo doporučení je řada display:none
   // a animace stojí); při vzniku se rozsvítí přes opacity.
   var RECO_SNOW_COUNT = 40;
 
-  function startRecoSnow(rowEl) {
-    if (rowEl.__ptSnow) return;
-    var w = rowEl.offsetWidth;
-    var h = rowEl.offsetHeight;
-    if (!w || !h) return; // řada ještě nemá rozměry – zkusí se znovu po načtení karet
-    rowEl.__ptSnow = true;
-    var el = document.createElement('div');
-    el.className = 'pt-snow';
+  function buildRecoSnow(el, w, h) {
     var rule = '';
     for (var i = 1; i <= RECO_SNOW_COUNT; i++) {
       var x = Math.round(Math.random() * w);
@@ -1442,13 +1598,49 @@
         'to{transform:translate(' + Math.round(x + drift / 2) + 'px,' + (h + 12) + 'px) scale(' + scale + ')}}';
       el.appendChild(document.createElement('i'));
     }
-    var css = document.createElement('style');
-    css.id = 'pt-snow-css';
-    css.textContent = rule;
-    document.head.appendChild(css);
-    rowEl.appendChild(el);
-    void el.offsetWidth; // přepočet stylu, ať se opacity opravdu animuje z 0
-    el.className = 'pt-snow pt-snow--on';
+    return rule;
+  }
+
+  // Tematický pás: pozadí, scéna i sníh sahají od levého kraje stránky
+  // (řada sama začíná až u obsahu) – vrstvy se proto natáhnou doleva
+  // o změřenou vzdálenost řady od kraje. Jde až když má řada rozměry
+  // (viditelná skupina); do té doby se zkouší znovu.
+  function setupThemeRow(rowEl, cfg) {
+    if (rowEl.__ptTheme) return;
+    var rect = rowEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    rowEl.__ptTheme = true;
+    var left = Math.max(0, Math.round(rect.left + (window.pageXOffset || 0)));
+    var w = Math.round(rect.width) + left;
+    var css = '';
+    var bleed = document.createElement('div');
+    bleed.className = 'pt-reco-bleed';
+    bleed.style.left = -left + 'px';
+    if (RECO_SCENES[cfg.theme]) {
+      var decor = document.createElement('div');
+      decor.className = 'pt-reco-decor';
+      css += RECO_SCENES[cfg.theme](decor, w);
+      bleed.appendChild(decor);
+    }
+    rowEl.insertBefore(bleed, rowEl.firstChild);
+    var snow = null;
+    if (cfg.snow) {
+      snow = document.createElement('div');
+      snow.className = 'pt-snow';
+      snow.style.left = -left + 'px';
+      css += buildRecoSnow(snow, w, Math.round(rect.height));
+      rowEl.appendChild(snow);
+    }
+    if (css) {
+      var style = document.createElement('style');
+      style.id = 'pt-theme-css';
+      style.textContent = css;
+      document.head.appendChild(style);
+    }
+    if (snow) {
+      void snow.offsetWidth; // přepočet stylu, ať se opacity opravdu animuje z 0
+      snow.className = 'pt-snow pt-snow--on';
+    }
   }
 
   function getTmdbKey() {
@@ -1692,6 +1884,7 @@
         var rowEl = document.createElement('div');
         rowEl.className = 'pt-reco-row' + (cfg.boxed ? ' pt-reco-row--boxed' : '') +
           (cfg.boxed === 'yellow' ? ' pt-reco-row--yellow' : '') +
+          (cfg.boxed === 'gray' ? ' pt-reco-row--gray' : '') +
           (cfg.wide ? ' pt-reco-row--wide' : '') +
           (cfg.theme ? ' pt-reco-row--theme pt-reco-row--' + cfg.theme : '');
         var h = document.createElement('h2');
@@ -1702,12 +1895,6 @@
         addRecoSkeletons(strip, cfg.wide);
         rowEl.appendChild(h);
         rowEl.appendChild(strip);
-        if (cfg.theme && RECO_DECOR[cfg.theme]) {
-          var decor = document.createElement('div');
-          decor.className = 'pt-reco-decor';
-          decor.innerHTML = RECO_DECOR[cfg.theme];
-          rowEl.appendChild(decor);
-        }
         groupEl.appendChild(rowEl);
         var globalIdx = g * half + i;
         // při obnově pozice stejné náhodné starty jako před odchodem,
@@ -1737,7 +1924,7 @@
         recoState.push(state);
         group.states.push(state);
         if (g === 0) loadRecoPage(state);
-        if (cfg.snow) startRecoSnow(rowEl);
+        if (cfg.theme) setupThemeRow(rowEl, cfg);
       }
     }
     if (restore) {
@@ -1754,6 +1941,10 @@
       recoGroups[i].el.className = 'pt-reco-group' + (i === idx ? '' : ' pt-reco-group--hidden');
     }
     recoGroupIndex = idx;
+    // tematický pás ve skupině, která byla při stavbě skrytá
+    for (var t = 0; t < group.states.length; t++) {
+      if (group.states[t].cfg.theme) setupThemeRow(group.states[t].strip.parentNode, group.states[t].cfg);
+    }
     if (!group.loaded) {
       group.loaded = true;
       for (var j = 0; j < group.states.length; j++) loadRecoPage(group.states[j]);
@@ -1856,7 +2047,7 @@
           recoAddCard(state, makeRecoCard(m, wide));
         }
         recoWindow(state, state.anchor);
-        if (state.cfg.snow) startRecoSnow(state.strip.parentNode);
+        if (state.cfg.theme) setupThemeRow(state.strip.parentNode, state.cfg);
         if (state.focusFirst) {
           state.focusFirst = false;
           var first = state.strip.querySelector('.pt-reco-card');

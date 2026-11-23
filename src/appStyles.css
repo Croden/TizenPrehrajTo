@@ -871,41 +871,139 @@ body.pt-reco .pt-filter-group {
   color: #9a9a9a;
 }
 
-/* tematická (sezónní) řada – blok jako červený/žlutý + malůvky a sníh.
-   Vánoce: zelená #1e9e46 (stejná sytost jako červená #be1e1e) */
+/* šedý blok (přes restyle sezónní řady) – jako #pt-history */
+.pt-reco-row--gray {
+  background: rgba(34, 34, 34, 0.72);
+}
+
+/* tematický (sezónní) pás – pozadí, malůvky i sníh přes celou šířku
+   stránky až k levému kraji, bez zaoblení; dole místo na scénu
+   (XMAS_H v userScript.js). Pozadí nese .pt-reco-bleed, který JS
+   natáhne doleva (setupThemeRow); obsah řady je nad ním. */
 .pt-reco-row--theme {
-  border-radius: 8px 0 0 8px;
-  padding: 4px 12px 10px;
+  padding: 4px 12px 100px;
   margin-left: -12px;
 }
 
-.pt-reco-row--xmas {
-  background: rgba(30, 158, 70, 0.5);
-}
-
-/* malůvky za postery (kopec nesmí překrýt fokus karty), vpravo od
-   nadpisu řady; stromečky vykukují nad horní hranu bloku */
+.pt-reco-row--theme .pt-reco-row-title,
 .pt-reco-row--theme .pt-reco-strip {
   position: relative;
   z-index: 1;
 }
 
+.pt-reco-bleed {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: -12px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
 
+/* Vánoce: červený pás (stejná červená jako box novinek) */
+.pt-reco-row--xmas .pt-reco-bleed {
+  background: rgba(190, 30, 30, 0.5);
+}
+
+/* scéna pod postery */
 .pt-reco-decor {
   position: absolute;
-  top: -19px;
-  left: 170px;
-  height: 80px;
-  z-index: 0;
-  pointer-events: none;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 104px;
 }
 
 .pt-reco-decor svg {
   display: block;
 }
 
-/* padající sníh přes celou řadu (vločky a jejich @keyframes generuje
-   startRecoSnow), běží trvale; při vzniku se rozsvítí přes opacity */
+.pt-xmas-sprite {
+  position: absolute;
+}
+
+/* stromečky se pohupují (otáčení kolem paty); sněhulák stojí */
+.pt-xmas-sway {
+  transform-origin: 50% 100%;
+  animation: pt-xmas-sway 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes pt-xmas-sway {
+  from { transform: rotate(-4deg); }
+  to { transform: rotate(4deg); }
+}
+
+/* sáňkař: bod na terénu (@keyframes pt-xmas-pos/-tilt generuje
+   xmasSledCss), v něm dvě pózy – jízda a chůze se saněmi. Procenta
+   střídání póz musí sedět s xmasSledCss. */
+.pt-xmas-sled,
+.pt-xmas-tilt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.pt-xmas-sled {
+  animation: pt-xmas-pos 18s linear infinite;
+}
+
+.pt-xmas-tilt {
+  transform-origin: 0 0;
+  animation: pt-xmas-tilt 18s linear infinite;
+}
+
+.pt-xmas-ride {
+  position: absolute;
+  left: -38px;
+  top: -57px;
+  animation: pt-xmas-ride 18s linear infinite;
+}
+
+.pt-xmas-walk {
+  position: absolute;
+  left: -76px;
+  top: -59px;
+  width: 114px;
+  height: 62px;
+  opacity: 0;
+  animation: pt-xmas-walk 18s linear infinite;
+}
+
+@keyframes pt-xmas-ride {
+  0%, 26% { opacity: 1; }
+  26.1%, 84% { opacity: 0; }
+  84.1%, 100% { opacity: 1; }
+}
+
+@keyframes pt-xmas-walk {
+  0%, 26% { opacity: 0; }
+  26.1%, 84% { opacity: 1; }
+  84.1%, 100% { opacity: 0; }
+}
+
+/* dvě fáze kroku se střídají */
+.pt-xmas-step {
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: pt-xmas-step 0.6s steps(1) infinite;
+}
+
+.pt-xmas-step--b {
+  animation-delay: -0.3s;
+}
+
+@keyframes pt-xmas-step {
+  0% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* padající sníh přes celý pás (vločky a jejich @keyframes generuje
+   buildRecoSnow), běží trvale; při vzniku se rozsvítí přes opacity */
 .pt-snow {
   position: absolute;
   top: 0;
@@ -913,7 +1011,6 @@ body.pt-reco .pt-filter-group {
   right: 0;
   bottom: 0;
   overflow: hidden;
-  border-radius: 8px 0 0 8px;
   pointer-events: none;
   z-index: 3;
   opacity: 0;
@@ -1344,6 +1441,16 @@ body.pt-favorites .video__title {
   font-weight: 400 !important;
   line-height: 1.3 !important;
   margin-top: 6px !important;
+}
+
+/* plné pozadí pod vybranou dlaždicí (jako u posteru v doporučeních),
+   ať je název čitelný i přes backdrop */
+body.pt-search a.video--link:focus,
+body.pt-search a.video--link:hover,
+body.pt-favorites a.video--link:focus,
+body.pt-favorites a.video--link:hover {
+  background: #1a1a1a;
+  border-radius: 8px;
 }
 
 body.pt-search a.video--link:focus .video__title,

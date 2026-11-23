@@ -405,6 +405,16 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   ok('lajk: žlutý, malý, vpravo nahoře, vlastní ikonka palce', typo.like.color === 'rgb(255, 180, 0)' && typo.like.fs === '14px' &&
     typo.like.dr === 6 && typo.like.dt === 6 && typo.like.icon === 'none' && typo.like.thumb, JSON.stringify(typo.like));
   ok('dislike: červený, vpravo nahoře, palec dolů', typo.dislike.color === 'rgb(216, 35, 42)' && typo.dislike.dr === 6 && typo.dislike.thumb, JSON.stringify(typo.dislike));
+  // vybraná dlaždice (ne nejlepší verze) má plné pozadí jako poster v doporučeních
+  const tileBg = await page.evaluate(() => {
+    const a = document.querySelector('.video-wrapper:not(.pt-best) a.video--link');
+    const before = getComputedStyle(a).backgroundColor;
+    a.focus();
+    const cs = getComputedStyle(a);
+    return { before, bg: cs.backgroundColor, radius: cs.borderTopLeftRadius, title: getComputedStyle(a.querySelector('.video__title')).color };
+  });
+  ok('fokus na dlaždici videa: tmavé pozadí pod názvem', tileBg.before !== 'rgb(26, 26, 26)' && tileBg.bg === 'rgb(26, 26, 26)' &&
+    tileBg.radius === '8px' && tileBg.title === 'rgb(190, 30, 30)', JSON.stringify(tileBg));
   // hledání omezené webem: hláška místo prázdné stránky + nový pokus
   blockedTitles.add('Blokovano');
   await page.goto('https://prehrajto.cz/hledej/Blokovano');
