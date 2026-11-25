@@ -15,6 +15,52 @@ const pageHtml = `<!doctype html><html><head><title>x</title></head><body>
 </div></div></main>
 </div></div></div></body></html>`;
 
+// LG webOS: posun mezi postery v doporučeních skočí hned (bez animace),
+// jinde (Samsung, prohlížeč) se animuje
+async function jumpCheck(browser, webos) {
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  await ctx.addInitScript(() => { window.__PT_SCRAPE__ = { perMin: 1000, concurrency: 2, pause: 1500 }; });
+  if (webos) await ctx.addInitScript(() => { window.PalmSystem = {}; });
+  await ctx.addInitScript(MOD);
+  const page = await ctx.newPage();
+  await page.route('https://prehrajto.cz/oblibena-videa/', (r) => r.fulfill({ contentType: 'text/html; charset=utf-8', body: pageHtml }));
+  await page.goto('https://prehrajto.cz/oblibena-videa/');
+  await page.waitForTimeout(400);
+  if (!(await page.evaluate(() => document.body.classList.contains('pt-reco')))) {
+    await page.click('.pt-switch-row .pt-reco-switch');
+    await page.waitForTimeout(450);
+  }
+  if (await page.locator('#pt-reco-gate').isVisible().catch(() => false)) {
+    await page.fill('#pt-reco-pass', 'test');
+    await page.click('#pt-reco-gate button');
+  }
+  await page.waitForSelector('.pt-reco-card', { timeout: 15000 });
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => document.querySelector('.pt-reco-card').focus());
+  // stisk + okamžité změření ve stejném tiku (animace by ještě neběžela)
+  const press = (code) => page.evaluate((c) => {
+    const ev = new KeyboardEvent('keydown', { bubbles: true, cancelable: true });
+    Object.defineProperty(ev, 'keyCode', { get: () => c });
+    (document.activeElement || window).dispatchEvent(ev);
+    const strip = document.activeElement.parentElement;
+    return { y: window.scrollY, x: strip ? strip.scrollLeft : 0 };
+  }, code);
+  const settled = () => page.evaluate(() => ({ y: window.scrollY, x: document.activeElement.parentElement.scrollLeft }));
+  const down = await press(40);
+  await page.waitForTimeout(500);
+  const downEnd = await settled();
+  let right = null;
+  let rightEnd = null;
+  for (let i = 0; i < 12; i++) {
+    right = await press(39);
+    await page.waitForTimeout(450);
+    rightEnd = await settled();
+    if (rightEnd.x > 0) break;
+  }
+  await ctx.close();
+  return { down, downEnd, right, rightEnd };
+}
+
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROME });
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
@@ -77,6 +123,13 @@ const pageHtml = `<!doctype html><html><head><title>x</title></head><body>
     return (r.top >= 0 && r.bottom <= window.innerHeight) ? 'ok' : 'mimo: top=' + r.top;
   });
   ok('karta viditelná po přepnutí skupiny', vis === 'ok', vis);
+
+  const lg = await jumpCheck(browser, true);
+  ok('LG: dolů mezi řadami okno skočí bez animace', lg.downEnd.y > 0 && lg.down.y === lg.downEnd.y, lg.down.y + ' / ' + lg.downEnd.y);
+  ok('LG: doprava řada skočí bez animace', lg.rightEnd.x > 0 && lg.right.x === lg.rightEnd.x, lg.right.x + ' / ' + lg.rightEnd.x);
+  const pc = await jumpCheck(browser, false);
+  ok('mimo LG se posun okna animuje', pc.downEnd.y > 0 && pc.down.y < pc.downEnd.y, pc.down.y + ' / ' + pc.downEnd.y);
+  ok('mimo LG se posun řady animuje', pc.rightEnd.x > 0 && pc.right.x < pc.rightEnd.x, pc.right.x + ' / ' + pc.rightEnd.x);
 
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

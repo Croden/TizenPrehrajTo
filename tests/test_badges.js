@@ -182,9 +182,14 @@ const searchPage = (items) => `<!doctype html><html><head><title>hledej</title><
   //     a dabing s rokem ±1 (Mayday) ≠ „Bez dabingu"
   const two = await page.evaluate(({ year, used }) => {
     const cache = JSON.parse(localStorage.getItem('tizenprehrajto.avail5') || '{}');
-    return Array.from(document.querySelectorAll('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card'))
+    const all = Array.from(document.querySelectorAll('.pt-reco-group:not(.pt-reco-group--hidden) .pt-reco-card'));
+    // jen názvy, které jsou na stránce jednou (dva různé filmy se stejným
+    // názvem – např. „Grinch" ve vánoční řadě – by si přepsaly výsledky)
+    const count = {};
+    all.forEach((x) => { count[x.__ptMovie.title] = (count[x.__ptMovie.title] || 0) + 1; });
+    return all
       .filter((x) => x.__ptMovie.year && x.__ptMovie.year !== year && !used.includes(x.__ptMovie.title) &&
-        x !== document.activeElement && !cache[x.__ptMovie.year + '|' + x.__ptMovie.title])
+        count[x.__ptMovie.title] === 1 && x !== document.activeElement && !cache[x.__ptMovie.year + '|' + x.__ptMovie.title])
       .slice(0, 3).map((x) => ({ title: x.__ptMovie.title, year: x.__ptMovie.year }));
   }, { year: YEAR, used: [old.title, blocked.title] });
   const [noMark, yearOff, subsOnly] = two;

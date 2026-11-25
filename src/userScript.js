@@ -61,6 +61,25 @@
   }
   markLoading();
 
+  // ------------------------------------------------------------------
+  // Tmavý motiv webu: web ho bere z cookie `theme`, bez ní podle
+  // prefers-color-scheme – na TV (hlavně LG) tak vycházel světlý a
+  // přepnout nejde. Cookie proto nastavuje mod (pro server i skript webu
+  // při dalším načtení) a atribut data-theme přepíše rovnou.
+  // ------------------------------------------------------------------
+  function forceDarkTheme() {
+    try {
+      if (!/(^|;\s*)theme=dark(;|$)/.test(document.cookie || '')) {
+        document.cookie = 'theme=dark; path=/; max-age=31536000';
+      }
+    } catch (e) { /* cookies nedostupné – zůstane aspoň atribut */ }
+    var de = document.documentElement;
+    if (de && de.getAttribute('data-theme') !== 'dark') de.setAttribute('data-theme', 'dark');
+  }
+  forceDarkTheme();
+  // skript webu v <head> může atribut nastavit až po startu modu
+  document.addEventListener('DOMContentLoaded', forceDarkTheme);
+
   // Původní homepage se nepoužívá – rovnou na oblíbená. Nepřihlášeného
   // ale web z oblíbených přesměruje zpět na / (kvůli přihlášení), proto
   // pojistka proti smyčce: podruhé do 15 s už homepage nechat.
@@ -195,6 +214,9 @@
   // ease-out). Nový cíl během animace plynule navazuje z aktuální pozice
   // (držení šipky = souvislý pohyb, žádné skoky).
   var SCROLL_MS = 260;
+  // LG webOS je pomalejší – v doporučeních se posun mezi postery
+  // neanimuje, řada i okno rovnou skočí
+  var RECO_INSTANT = IS_WEBOS;
   var raf = window.requestAnimationFrame || window.webkitRequestAnimationFrame ||
     function (cb) { return setTimeout(cb, 16); };
   var cancelRaf = window.cancelAnimationFrame || window.webkitCancelAnimationFrame ||
@@ -3658,10 +3680,10 @@
     var groupEl = card.closest('.pt-reco-group');
     if (rowEl && groupEl && groupEl === groupEl.parentElement.firstElementChild &&
         rowEl === groupEl.firstElementChild) {
-      smoothScrollWindowTo(0, instant);
+      smoothScrollWindowTo(0, instant || RECO_INSTANT);
       return;
     }
-    centerInWindow(card, instant);
+    centerInWindow(card, instant || RECO_INSTANT);
   }
 
   // vodorovný posun řady; počítá s cílem právě běžící animace, takže
@@ -3682,6 +3704,7 @@
     }
     to = Math.round(Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, to)));
     if (to === view && !instant) return;
+    if (RECO_INSTANT && strip.classList.contains('pt-reco-strip')) instant = true;
     tweenScroll(holder, cur, to, function (v) { strip.scrollLeft = v; }, instant ? 0 : SCROLL_MS);
   }
 
@@ -3713,7 +3736,7 @@
         // z úplně první řady nahoru zpět na přepínače
         var sw = recoSwitchEl();
         focusEl(sw || document.querySelector('input.video-search-phrase'));
-        smoothScrollWindowTo(0);
+        smoothScrollWindowTo(0, RECO_INSTANT);
       }
       return;
     }

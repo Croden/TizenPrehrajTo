@@ -10,7 +10,9 @@ const LOADER = fs.readFileSync(path.join(ROOT, 'build/webos/webOSUserScripts/use
 const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 const CDN = 'https://cdn.jsdelivr.net/gh/Croden/TizenPrehrajTo@main/';
 
-const favHtml = `<!doctype html><html><head><title>x</title></head><body>
+// jako web bez cookie `theme`: skript v <head> volí motiv podle systému
+const favHtml = `<!doctype html><html data-theme="light"><head><title>x</title>
+<script>document.documentElement.setAttribute('data-theme', /(^|; )theme=dark/.test(document.cookie) ? 'dark' : 'light');</script></head><body>
 <div class="content"><div class="header"><input class="video-search-phrase" type="search"></div>
 <main><div class="grid-x"><div class="cell video-wrapper"><div class="video__picture--container">
 <a class="video video--small video--link" href="/v1" title="Video 1"><h3 class="video__title">Video 1</h3></a></div></div></div></main>
@@ -55,6 +57,8 @@ async function newCtx(browser, webos, cdn) {
   await page.waitForTimeout(1200);
   ok('zavaděč spustí přibalený mod', await page.evaluate(() => document.body.classList.contains('pt-favorites') && !!window.__TIZENPREHRAJTO__));
   ok('start aplikace = doporučení (brána hesla)', await page.evaluate(() => document.body.classList.contains('pt-reco')));
+  ok('tmavý motiv: data-theme=dark i bez cookie', await page.evaluate(() => document.documentElement.getAttribute('data-theme') === 'dark'));
+  ok('tmavý motiv: cookie theme=dark nastavena', await page.evaluate(() => /(^|; )theme=dark/.test(document.cookie)));
   await press(page, 461); // Zpět v poli hesla = jen zavřít klávesnici
   await press(page, 461); // Zpět v doporučení = na oblíbená
   await page.waitForTimeout(300);
